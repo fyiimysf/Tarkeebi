@@ -1,0 +1,17 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "tarkeebi",
+	"compatibility_date": "2026-10-19",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"pages_build_output_dir": ".svelte-kit/cloudflare",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "tarkeebi",
+			"database_id": "27acba00-0212-4c9b-b685-a297f07565c0",
+			"migrations_dir": "drizzle"
+		}
+	]
+}

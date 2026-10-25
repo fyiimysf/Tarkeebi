@@ -1,0 +1,437 @@
+@import 'tailwindcss';
+
+/* Self-hosted variable fonts: no third-party request, correct offline in the
+   PWA, and identical rendering on Apple / Windows / Linux / Android.
+   The system deliberately inverts the usual "serif headline, sans body" recipe:
+   a tight grotesque carries the headings, a reading serif carries the prose, and
+   the sans is reserved for UI chrome. Fontsource emits per-subset `unicode-range`,
+   so only the subsets a page actually uses get downloaded. */
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
+@import '@fontsource-variable/karla/wght.css';
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+/* Class-based dark mode so the user's choice can override the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===========================================================================
+   LAYER 1 — PRIMITIVES
+   Raw ramps. Components must never reference these directly; they exist only
+   so the semantic layer below has something stable to point at.
+   ======================================================================== */
+@theme {
+	--font-sans:
+		'Karla Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-display:
+		'Bricolage Grotesque Variable', 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
+	--font-serif:
+		'Source Serif 4 Variable', 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua',
+		Georgia, 'Times New Roman', serif;
+	--font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	/* Warm kitchen paper. */
+	--color-paper-50: #fcfaf5;
+	--color-paper-100: #f9f5ed;
+	--color-paper-200: #f3ede1;
+	--color-paper-300: #e8dfcf;
+	--color-paper-400: #d9cdb8;
+
+	/* Warm near-black, for ink and for dark-mode surfaces. */
+	--color-ink-950: #12100d;
+	--color-ink-900: #1a1713;
+	--color-ink-800: #262220;
+	--color-ink-700: #3a342e;
+	--color-ink-600: #514a42;
+	--color-ink-500: #6b6157;
+	--color-ink-400: #8a7f72;
+	--color-ink-300: #a9a196;
+	--color-ink-200: #c9c1b6;
+	--color-ink-100: #e4ded5;
+
+	/* Clay: the brand. Terracotta-brown, the colour of a tagine. */
+	--color-clay-50: #fbf1e7;
+	--color-clay-100: #f6e1cb;
+	--color-clay-200: #edc4a1;
+	--color-clay-300: #e0a171;
+	--color-clay-400: #d07c45;
+	--color-clay-500: #bc5f26;
+	--color-clay-600: #9a3d06;
+	--color-clay-700: #7c3105;
+	--color-clay-800: #5f2604;
+	--color-clay-900: #451c03;
+
+	/* Sage: the secondary accent, for published / cooked / success. */
+	--color-sage-50: #eef3ec;
+	--color-sage-100: #dce8d6;
+	--color-sage-200: #bbd3b0;
+	--color-sage-300: #93b985;
+	--color-sage-400: #6b9c5c;
+	--color-sage-500: #4a7c3f;
+	--color-sage-600: #3a6331;
+	--color-sage-700: #2d4d27;
+
+	--radius-control: 0.5rem;
+	--radius-card: 1rem;
+	--radius-pill: 9999px;
+
+	--shadow-subtle: 0 1px 2px 0 rgb(26 23 19 / 0.05);
+	--shadow-raised: 0 1px 3px 0 rgb(26 23 19 / 0.08), 0 1px 2px -1px rgb(26 23 19 / 0.06);
+	--shadow-lifted: 0 12px 28px -8px rgb(26 23 19 / 0.18), 0 4px 10px -4px rgb(26 23 19 / 0.1);
+
+	--ease-out-quint: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===========================================================================
+   LAYER 1b — SEMANTIC VALUES
+   One set of names, two sets of values. Because the utilities below are
+   declared with `@theme inline`, `bg-canvas` compiles to
+   `background-color: var(--canvas)` — so flipping `.dark` re-themes every
+   element without a single `dark:` variant.
+   ======================================================================== */
+:root {
+	color-scheme: light;
+
+	--canvas: #f9f5ed;
+	--surface: #fcfaf5;
+	--surface-sunken: #f3ede1;
+
+	--fg: #1a1713;
+	--fg-muted: #514a42;
+	--fg-subtle: #6b6157;
+
+	--border: #e4ded5;
+	--border-strong: #8a7f72;
+
+	--accent: #9a3d06;
+	--accent-hover: #7c3105;
+	--accent-fg: #ffffff;
+	--accent-soft: #f6e1cb;
+	--accent-soft-fg: #7c3105;
+
+	--success: #3a6331;
+	--success-soft: #dce8d6;
+	--success-soft-fg: #2d4d27;
+
+	--danger: #b3261e;
+	--danger-soft: #fbe4e2;
+	--danger-soft-fg: #8c1d17;
+
+	--ring: #9a3d06;
+
+	/* Motion: shared tokens so press feedback and entrances stay in step. */
+	--duration-fast: 120ms;
+	--duration-base: 180ms;
+	--duration-slow: 280ms;
+}
+
+.dark {
+	color-scheme: dark;
+
+	--canvas: #12100d;
+	--surface: #1a1713;
+	--surface-sunken: #262220;
+
+	--fg: #f5f1ea;
+	--fg-muted: #c9c1b6;
+	--fg-subtle: #a9a196;
+
+	--border: #332e28;
+	--border-strong: #857868;
+
+	--accent: #e0a171;
+	--accent-hover: #edc4a1;
+	--accent-fg: #12100d;
+	--accent-soft: #3d2517;
+	--accent-soft-fg: #e0a171;
+
+	--success: #93b985;
+	--success-soft: #22301c;
+	--success-soft-fg: #bbd3b0;
+
+	--danger: #f2b8b5;
+	--danger-soft: #3a1614;
+	--danger-soft-fg: #f2b8b5;
+
+	--ring: #e0a171;
+}
+
+@theme inline {
+	--color-canvas: var(--canvas);
+	--color-surface: var(--surface);
+	--color-surface-sunken: var(--surface-sunken);
+
+	--color-fg: var(--fg);
+	--color-fg-muted: var(--fg-muted);
+	--color-fg-subtle: var(--fg-subtle);
+
+	--color-border: var(--border);
+	--color-border-strong: var(--border-strong);
+
+	--color-accent: var(--accent);
+	--color-accent-hover: var(--accent-hover);
+	--color-accent-fg: var(--accent-fg);
+	--color-accent-soft: var(--accent-soft);
+	--color-accent-soft-fg: var(--accent-soft-fg);
+
+	--color-success: var(--success);
+	--color-success-soft: var(--success-soft);
+	--color-success-soft-fg: var(--success-soft-fg);
+
+	--color-danger: var(--danger);
+	--color-danger-soft: var(--danger-soft);
+	--color-danger-soft-fg: var(--danger-soft-fg);
+
+	--color-ring: var(--ring);
+}
+
+/* ===========================================================================
+   ANIMATIONS
+   ======================================================================== */
+/* Modals mount/unmount, so a one-shot entrance animation is enough.
+   Only opacity is animated on the panel itself; the centering transform lives
+   on the wrapper so the two never fight over `transform`. */
+@keyframes dialog-overlay-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes dialog-content-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes dialog-pop-in {
+	from {
+		transform: scale(0.96);
+	}
+	to {
+		transform: scale(1);
+	}
+}
+
+/* Smooth entry for BitsUI floating content. */
+@keyframes bits-content-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* Confirmation pop for a tally that just changed. */
+@keyframes count-pop {
+	0% {
+		transform: scale(1);
+	}
+	40% {
+		transform: scale(1.14);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+/* ===========================================================================
+   LAYER 2 — BASE
+   ======================================================================== */
+@layer base {
+	html {
+		-webkit-tap-highlight-color: transparent;
+		scroll-behavior: smooth;
+		/* Stop iOS/Android from auto-inflating text (and thus the whole layout) on rotate/zoom. */
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+		/* Long unbroken user strings (titles, notes, URLs) must not blow out their container. */
+		overflow-wrap: break-word;
+	}
+
+	body {
+		@apply bg-canvas font-sans text-fg antialiased;
+		/* Belt-and-braces against layout-scale jumps on mobile. */
+		overflow-wrap: break-word;
+	}
+
+	:focus-visible {
+		@apply outline-2 outline-offset-2 outline-ring;
+	}
+
+	/* Tailwind v4's reset leaves buttons on `cursor: default`; interactive
+	   controls should always advertise themselves. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']) {
+		cursor: pointer;
+	}
+
+	h1,
+	h2,
+	h3 {
+		@apply text-balance font-display;
+		/* Grotesque display type needs negative tracking to stop looking loose. */
+		letter-spacing: -0.022em;
+	}
+
+	h1 {
+		letter-spacing: -0.032em;
+	}
+
+	/* One switch disables every transition, animation, and smooth scroll. The
+	   `!important` is deliberate: component-level `transition` declarations
+	   would otherwise win over this rule. */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}
+
+/* ===========================================================================
+   LAYER 3 — COMPONENTS
+   Every class below is expressed in semantic tokens. If a colour is hardcoded
+   anywhere in this file, it is a bug.
+   ======================================================================== */
+@layer components {
+	.card {
+		@apply rounded-card border border-border bg-surface shadow-subtle;
+	}
+
+	/* Inset panel used inside cards for grouped rows. */
+	.surface-sunken {
+		@apply rounded-control border border-border bg-surface-sunken;
+	}
+
+	.btn,
+	.btn-primary,
+	.btn-secondary,
+	.btn-ghost,
+	.btn-danger {
+		@apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-control px-4 py-2.5 text-sm font-medium
+			transition-colors duration-(--duration-fast) disabled:cursor-not-allowed disabled:opacity-50 sm:py-2;
+	}
+
+	.btn-primary {
+		@apply bg-accent text-accent-fg hover:bg-accent-hover;
+	}
+
+	.btn-secondary {
+		@apply border border-border-strong bg-surface text-fg hover:bg-surface-sunken;
+	}
+
+	.btn-ghost {
+		@apply text-fg-muted hover:bg-surface-sunken hover:text-fg;
+	}
+
+	/* Square icon-only button. 40px keeps the hit area comfortably clear of the
+	   24px WCAG 2.2 target minimum and closer to the 44pt platform guidance. */
+	.btn-icon {
+		@apply inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-muted
+			transition-colors duration-(--duration-fast) hover:bg-surface-sunken hover:text-fg
+			disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.btn-danger {
+		@apply border border-danger/40 text-danger hover:bg-danger-soft;
+	}
+
+	.input {
+		/* 16px on mobile so iOS Safari doesn't auto-zoom the viewport on focus;
+     back to 14px on larger screens where the zoom quirk doesn't apply. */
+		@apply block w-full rounded-control border border-border-strong bg-surface px-3 py-2.5 text-base text-fg shadow-subtle
+			placeholder:text-fg-subtle sm:py-2 sm:text-sm;
+		/* A field focused from the keyboard or native validation must clear the
+		   sticky page header and the mobile action bar. */
+		scroll-margin-block: 6rem;
+	}
+
+	.label {
+		@apply block text-sm font-medium text-fg-muted;
+	}
+
+	/* Small uppercase kicker. Uses the accent token, which clears 4.5:1 on both
+	   canvas and surface in both themes. */
+	.eyebrow {
+		@apply font-mono text-xs font-semibold uppercase tracking-[0.18em] text-accent;
+	}
+
+	/* Secondary recipe metadata: servings, time, dates. */
+	.meta {
+		@apply font-mono text-xs tracking-wide text-fg-subtle;
+	}
+
+	/* Long-form recipe prose — description, steps, kitchen notes. Serif at a
+	   reading size with old-style figures and pretty wrapping; the measure is
+	   capped so lines stay comfortable on wide screens. */
+	.prose-editorial {
+		@apply max-w-[68ch] font-serif text-[1.0625rem] leading-[1.7] text-fg-muted;
+		font-variant-numeric: oldstyle-nums proportional-nums;
+		text-wrap: pretty;
+	}
+
+	.prose-editorial-lg {
+		@apply max-w-[60ch] font-serif text-lg leading-[1.65] text-fg-muted sm:text-xl;
+		font-variant-numeric: oldstyle-nums proportional-nums;
+		text-wrap: pretty;
+	}
+
+	.chip {
+		@apply inline-flex items-center gap-1.5 rounded-pill border border-border px-3 py-1 text-xs font-medium text-fg-muted
+			transition-colors duration-(--duration-fast) hover:border-accent hover:text-accent;
+	}
+
+	.chip-active {
+		@apply border-accent bg-accent-soft text-accent-soft-fg hover:text-accent-soft-fg;
+	}
+
+	/* Circular badge for icons. */
+	.icon-badge {
+		@apply grid size-12 shrink-0 place-items-center rounded-pill bg-accent-soft text-accent-soft-fg;
+	}
+
+	/* Hairline rule that reads as a printed divider, not a UI border. */
+	.rule {
+		@apply border-0 border-t border-border;
+	}
+
+	/* One-shot confirmation when a counter increments. */
+	.count-pop {
+		animation: count-pop 420ms var(--ease-out-quint);
+	}
+}
+
+/* Keep the printed recipe free of chrome.
+   Only `.no-print` is hidden — site chrome must opt in with that class, so the
+   recipe's own <header> (title, description, meta) still prints. */
+@media print {
+	.no-print {
+		display: none !important;
+	}
+
+	body {
+		background: #fff !important;
+		color: #000 !important;
+	}
+
+	.card {
+		border: none !important;
+		box-shadow: none !important;
+		background: transparent !important;
+	}
+}

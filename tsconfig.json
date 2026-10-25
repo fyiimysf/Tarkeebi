@@ -1,0 +1,24 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		// Generated Paraglide output is JS with matching .d.ts declarations, and
+		// `@cloudflare/workers-types` redefines DOM globals (`Request`, `Response`),
+		// so checking its inferred JS produces false positives.
+		"checkJs": false,
+		"types": [
+			"$app/types",
+			"./worker-configuration.d.ts",
+			"@cloudflare/workers-types",
+			"node"
+		]
+	},
+	"include": [
+		"src",
+		"vite.config.ts",
+		"drizzle.config.ts"
+	],
+	"exclude": [
+		"src/service-worker"
+	]
+}
