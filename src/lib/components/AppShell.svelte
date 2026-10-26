@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import {
@@ -13,22 +14,47 @@
 		Settings,
 		Sparkles
 	} from '@lucide/svelte';
+	import { readDashboard } from '#lib/cache.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SessionUser } from '#lib/types.ts';
+	import AppStatsResolver from './AppStatsResolver.svelte';
 	import Logo from './Logo.svelte';
 	import MobileTabBar from './MobileTabBar.svelte';
+	import PageTransition from './PageTransition.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import UserMenu from './UserMenu.svelte';
 
+	type RecipeStats = {
+		recipes: number;
+		favorites: number;
+		published: number;
+		cooked: number;
+	};
+
 	let {
 		user,
-		stats,
+		stats: statsPromise,
 		children
 	}: {
 		user: SessionUser;
-		stats?: { recipes: number; favorites: number; published: number; cooked: number };
+		stats?: Promise<RecipeStats>;
 		children: Snippet;
 	} = $props();
+
+	// Show the last known counts immediately; the streamed stats replace them.
+	let stats = $state<RecipeStats | null>(null);
+
+	onMount(() => {
+		const cached = readDashboard(user.id);
+		if (!cached) return;
+
+		stats = {
+			recipes: cached.recipes.length,
+			favorites: cached.recipes.filter((recipe) => recipe.isFavorite).length,
+			published: cached.recipes.filter((recipe) => recipe.isPublic).length,
+			cooked: cached.recipes.reduce((total, recipe) => total + recipe.cookedCount, 0)
+		};
+	});
 
 	type NavItem = {
 		key: string;
@@ -118,6 +144,12 @@
 		);
 	}
 </script>
+
+{#if statsPromise}
+	{#key statsPromise}
+		<AppStatsResolver promise={statsPromise} onStats={(value) => (stats = value)} />
+	{/key}
+{/if}
 
 <div class="min-h-dvh">
 	<!-- Desktop sidebar -->
@@ -239,11 +271,12 @@
 
 	<main class="md:ps-64">
 		<div class="mx-auto w-full max-w-5xl px-4 py-6 pb-40 md:px-8 md:py-10 md:pb-10">
-			{@render children()}
+			<PageTransition>
+				{@render children()}
+			</PageTransition>
 		</div>
 	</main>
 
-	<!-- Mobile bottom bar, iOS 26 style: a floating tab pill plus a trailing
-       icon-only compose button, both hovering above the safe area. -->
+	<!-- Mobile bottom bar, with a contextual action button in its notch. -->
 	<MobileTabBar />
 </div>

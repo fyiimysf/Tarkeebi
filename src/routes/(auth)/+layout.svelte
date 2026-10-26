@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Logo from '#lib/components/Logo.svelte';
+	import PageTransition from '#lib/components/PageTransition.svelte';
 	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { LayoutProps } from './$types';
@@ -21,7 +22,9 @@
 				</h2>
 				<p class="mt-1 text-sm text-fg-subtle">{m.app_tagline()}</p>
 			</div>
-			{@render children()}
+			<PageTransition>
+				{@render children()}
+			</PageTransition>
 		</div>
 	</main>
 </div>

@@ -1,8 +1,22 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { CirclePlus, Globe, GlobeLock, ImagePlus, LoaderCircle, X } from '@lucide/svelte';
+	import {
+		ArrowDown,
+		ArrowUp,
+		CirclePlus,
+		ClipboardPaste,
+		Globe,
+		GlobeLock,
+		ImagePlus,
+		LoaderCircle,
+		X
+	} from '@lucide/svelte';
+	import { flip } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
+	import { flipParams, slideParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { parseBulkIngredients, parseBulkSteps } from '#lib/recipe-bulk.ts';
 	import type { RecipeFormInitial } from '#lib/types.ts';
 
 	type Submit = NonNullable<Parameters<typeof enhance>[1]>;
@@ -63,6 +77,10 @@
 	let submitting = $state(false);
 	let isPublic = $state(untrack(() => initial.isPublic ?? false));
 	let imageInput: HTMLInputElement | null = null;
+	let ingredientsBulkOpen = $state(false);
+	let stepsBulkOpen = $state(false);
+	let bulkIngredients = $state('');
+	let bulkSteps = $state('');
 
 	/** The row that was just added, highlighted once so the eye can find it. */
 	let freshRow = $state<string | null>(null);
@@ -172,11 +190,14 @@
 			context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 			bitmap.close();
 
+			// Re-encode every upload at 65% quality as WebP, even when the source
+			// is already small, so Filebase stores the compact format consistently.
 			const blob = await new Promise<Blob | null>((resolve) =>
-				canvas.toBlob(resolve, 'image/webp', 0.82)
+				canvas.toBlob(resolve, 'image/webp', 0.65)
 			);
 
-			if (!blob || blob.size >= file.size) return file;
+			// Some older browsers ignore the requested type and silently return PNG.
+			if (!blob || blob.type !== 'image/webp') return file;
 
 			const name = file.name.replace(/\.[^.]+$/, '') || 'recipe';
 			return new File([blob], `${name}.webp`, { type: 'image/webp' });
@@ -221,6 +242,15 @@
 		if (ingredients.length > 1) ingredients.splice(index, 1);
 	}
 
+	function moveIngredient(index: number, direction: -1 | 1) {
+		const target = index + direction;
+		if (target < 0 || target >= ingredients.length) return;
+
+		const next = [...ingredients];
+		[next[index], next[target]] = [next[target], next[index]];
+		ingredients = next;
+	}
+
 	async function addStep() {
 		const row = emptyStep();
 		steps.push(row);
@@ -229,6 +259,50 @@
 
 	function removeStep(index: number) {
 		if (steps.length > 1) steps.splice(index, 1);
+	}
+
+	function moveStep(index: number, direction: -1 | 1) {
+		const target = index + direction;
+		if (target < 0 || target >= steps.length) return;
+
+		const next = [...steps];
+		[next[index], next[target]] = [next[target], next[index]];
+		steps = next;
+	}
+
+	function applyBulkIngredients() {
+		const parsed = parseBulkIngredients(bulkIngredients);
+		if (parsed.length === 0) return;
+
+		const existing = ingredients.filter(
+			(row) => row.quantity.trim() || row.unit.trim() || row.name.trim() || row.note.trim()
+		);
+
+		ingredients = [
+			...existing,
+			...parsed.map((item) => ({
+				id: crypto.randomUUID(),
+				...item
+			}))
+		];
+		bulkIngredients = '';
+		ingredientsBulkOpen = false;
+	}
+
+	function applyBulkSteps() {
+		const parsed = parseBulkSteps(bulkSteps);
+		if (parsed.length === 0) return;
+
+		const existing = steps.filter((row) => row.instruction.trim());
+		steps = [
+			...existing,
+			...parsed.map((instruction) => ({
+				id: crypto.randomUUID(),
+				instruction
+			}))
+		];
+		bulkSteps = '';
+		stepsBulkOpen = false;
 	}
 </script>
 
@@ -264,8 +338,7 @@
 				rows="2"
 				class="input resize-none overflow-hidden"
 				value={initial.description ?? ''}
-				{@attach autosize}
-			></textarea>
+				{@attach autosize}></textarea>
 		</div>
 
 		<div class="space-y-1.5">
@@ -385,11 +458,7 @@
 				</label>
 				{#if previewUrl}
 					<div class="relative mt-2">
-						<img
-							src={previewUrl}
-							alt=""
-							class="aspect-video w-full rounded-control object-cover"
-						/>
+						<img src={previewUrl} alt="" class="aspect-video w-full rounded-control object-cover" />
 						{#if previewIsObjectUrl}
 							<button
 								type="button"
@@ -435,21 +504,64 @@
 				rows="3"
 				class="input resize-none overflow-hidden"
 				value={initial.notes ?? ''}
-				{@attach autosize}
-			></textarea>
+				{@attach autosize}></textarea>
 			<p class="text-xs text-fg-subtle">{m.recipe_field_notes_hint()}</p>
 		</div>
 	</section>
 
 	<section class="card p-4 sm:p-6">
-		<div class="flex items-center justify-between gap-3">
-			<h2 class="font-display text-xl font-bold">{m.recipe_ingredients()}</h2>
-			<span
-				class="rounded-pill bg-surface-sunken px-2.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-fg-subtle"
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="flex items-center gap-2">
+				<h2 class="font-display text-xl font-bold">{m.recipe_ingredients()}</h2>
+				<span
+					class="rounded-pill bg-surface-sunken px-2.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-fg-subtle"
+				>
+					{ingredients.length}
+				</span>
+			</div>
+			<button
+				type="button"
+				class="btn-ghost -me-2 shrink-0 text-sm"
+				aria-expanded={ingredientsBulkOpen}
+				aria-controls="bulk-ingredients"
+				onclick={() => (ingredientsBulkOpen = !ingredientsBulkOpen)}
 			>
-				{ingredients.length}
-			</span>
+				<ClipboardPaste class="size-4" />
+				{ingredientsBulkOpen ? m.recipe_bulk_close() : m.recipe_bulk_add()}
+			</button>
 		</div>
+
+		{#if ingredientsBulkOpen}
+			<div
+				id="bulk-ingredients"
+				class="surface-sunken mt-4 space-y-2 p-3"
+				transition:slide={slideParams(180)}
+			>
+				<label class="label" for="bulk-ingredients-input">
+					{m.recipe_bulk_ingredients_label()}
+				</label>
+				<textarea
+					id="bulk-ingredients-input"
+					bind:value={bulkIngredients}
+					rows="8"
+					class="input min-h-44 resize-y font-mono leading-relaxed"
+					placeholder={m.recipe_bulk_ingredients_placeholder()}></textarea>
+				<p class="text-xs text-fg-subtle">{m.recipe_bulk_ingredients_hint()}</p>
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="btn-primary"
+						onclick={applyBulkIngredients}
+						disabled={!bulkIngredients.trim()}
+					>
+						{m.recipe_bulk_apply_ingredients()}
+					</button>
+					<button type="button" class="btn-ghost" onclick={() => (ingredientsBulkOpen = false)}>
+						{m.recipe_cancel()}
+					</button>
+				</div>
+			</div>
+		{/if}
 
 		<div class="mt-4 space-y-3">
 			{#each ingredients as row, index (row.id)}
@@ -458,25 +570,50 @@
 					class="surface-sunken p-3 transition-shadow {freshRow === `ingredient-${row.id}`
 						? 'ring-2 ring-accent/40'
 						: ''}"
+					role="group"
+					aria-label={`${m.recipe_ingredient_name()} ${index + 1}`}
+					animate:flip={flipParams(160)}
 				>
 					<div class="flex items-center justify-between gap-2">
 						<span class="inline-flex items-center gap-2 text-xs font-semibold text-fg-subtle">
 							<span
 								class="grid size-6 place-items-center rounded-full bg-surface font-mono text-[11px] tabular-nums"
+								aria-hidden="true"
 							>
 								{String(index + 1).padStart(2, '0')}
 							</span>
-							<span class="sr-only">{m.recipe_ingredients()} {index + 1}</span>
 						</span>
-						<button
-							type="button"
-							class="btn-icon -me-2 -my-1.5"
-							onclick={() => removeIngredient(index)}
-							aria-label={`${m.recipe_remove()} ${index + 1}`}
-							disabled={ingredients.length === 1}
-						>
-							<X class="size-4" />
-						</button>
+						<div class="flex items-center">
+							<button
+								type="button"
+								class="btn-icon"
+								onclick={() => moveIngredient(index, -1)}
+								aria-label={`${m.recipe_move_up()} ${m.recipe_ingredient_name()} ${index + 1}`}
+								title={m.recipe_move_up()}
+								disabled={index === 0}
+							>
+								<ArrowUp class="size-4" />
+							</button>
+							<button
+								type="button"
+								class="btn-icon"
+								onclick={() => moveIngredient(index, 1)}
+								aria-label={`${m.recipe_move_down()} ${m.recipe_ingredient_name()} ${index + 1}`}
+								title={m.recipe_move_down()}
+								disabled={index === ingredients.length - 1}
+							>
+								<ArrowDown class="size-4" />
+							</button>
+							<button
+								type="button"
+								class="btn-icon -me-2"
+								onclick={() => removeIngredient(index)}
+								aria-label={`${m.recipe_remove()} ${m.recipe_ingredient_name()} ${index + 1}`}
+								disabled={ingredients.length === 1}
+							>
+								<X class="size-4" />
+							</button>
+						</div>
 					</div>
 
 					<div class="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
@@ -536,14 +673,59 @@
 	</section>
 
 	<section class="card p-4 sm:p-6">
-		<div class="flex items-center justify-between gap-3">
-			<h2 class="font-display text-xl font-bold">{m.recipe_steps()}</h2>
-			<span
-				class="rounded-pill bg-surface-sunken px-2.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-fg-subtle"
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="flex items-center gap-2">
+				<h2 class="font-display text-xl font-bold">{m.recipe_steps()}</h2>
+				<span
+					class="rounded-pill bg-surface-sunken px-2.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-fg-subtle"
+				>
+					{steps.length}
+				</span>
+			</div>
+			<button
+				type="button"
+				class="btn-ghost -me-2 shrink-0 text-sm"
+				aria-expanded={stepsBulkOpen}
+				aria-controls="bulk-steps"
+				onclick={() => (stepsBulkOpen = !stepsBulkOpen)}
 			>
-				{steps.length}
-			</span>
+				<ClipboardPaste class="size-4" />
+				{stepsBulkOpen ? m.recipe_bulk_close() : m.recipe_bulk_add()}
+			</button>
 		</div>
+		<p id="steps-markdown-hint" class="mt-1 text-xs text-fg-subtle">
+			{m.recipe_step_markdown_hint()}
+		</p>
+
+		{#if stepsBulkOpen}
+			<div
+				id="bulk-steps"
+				class="surface-sunken mt-3 space-y-2 p-3"
+				transition:slide={slideParams(180)}
+			>
+				<label class="label" for="bulk-steps-input">{m.recipe_bulk_steps_label()}</label>
+				<textarea
+					id="bulk-steps-input"
+					bind:value={bulkSteps}
+					rows="8"
+					class="input min-h-44 resize-y font-mono leading-relaxed"
+					placeholder={m.recipe_bulk_steps_placeholder()}></textarea>
+				<p class="text-xs text-fg-subtle">{m.recipe_bulk_steps_hint()}</p>
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="btn-primary"
+						onclick={applyBulkSteps}
+						disabled={!bulkSteps.trim()}
+					>
+						{m.recipe_bulk_apply_steps()}
+					</button>
+					<button type="button" class="btn-ghost" onclick={() => (stepsBulkOpen = false)}>
+						{m.recipe_cancel()}
+					</button>
+				</div>
+			</div>
+		{/if}
 
 		<div class="mt-4 space-y-3">
 			{#each steps as step, index (step.id)}
@@ -552,35 +734,60 @@
 					class="surface-sunken p-3 transition-shadow {freshRow === `step-${step.id}`
 						? 'ring-2 ring-accent/40'
 						: ''}"
+					role="group"
+					aria-label={`${m.recipe_step()} ${index + 1}`}
+					animate:flip={flipParams(160)}
 				>
 					<div class="flex items-center justify-between gap-2">
 						<span class="inline-flex items-center gap-2 text-xs font-semibold text-fg-subtle">
 							<span
 								class="grid size-6 place-items-center rounded-full bg-surface font-mono text-[11px] tabular-nums"
+								aria-hidden="true"
 							>
 								{String(index + 1).padStart(2, '0')}
 							</span>
-							<span class="sr-only">{m.recipe_steps()} {index + 1}</span>
 						</span>
-						<button
-							type="button"
-							class="btn-icon -me-2 -my-1.5"
-							onclick={() => removeStep(index)}
-							aria-label={`${m.recipe_remove()} ${index + 1}`}
-							disabled={steps.length === 1}
-						>
-							<X class="size-4" />
-						</button>
+						<div class="flex items-center">
+							<button
+								type="button"
+								class="btn-icon"
+								onclick={() => moveStep(index, -1)}
+								aria-label={`${m.recipe_move_up()} ${m.recipe_step()} ${index + 1}`}
+								title={m.recipe_move_up()}
+								disabled={index === 0}
+							>
+								<ArrowUp class="size-4" />
+							</button>
+							<button
+								type="button"
+								class="btn-icon"
+								onclick={() => moveStep(index, 1)}
+								aria-label={`${m.recipe_move_down()} ${m.recipe_step()} ${index + 1}`}
+								title={m.recipe_move_down()}
+								disabled={index === steps.length - 1}
+							>
+								<ArrowDown class="size-4" />
+							</button>
+							<button
+								type="button"
+								class="btn-icon -me-2"
+								onclick={() => removeStep(index)}
+								aria-label={`${m.recipe_remove()} ${m.recipe_step()} ${index + 1}`}
+								disabled={steps.length === 1}
+							>
+								<X class="size-4" />
+							</button>
+						</div>
 					</div>
 					<textarea
 						name="stepInstruction"
 						bind:value={step.instruction}
 						rows="3"
-						placeholder={m.recipe_step_instruction()}
-						aria-label={`${m.recipe_steps()} ${index + 1}`}
+						placeholder={m.recipe_step_instruction_placeholder()}
+						aria-label={`${m.recipe_step()} ${index + 1}`}
+						aria-describedby="steps-markdown-hint"
 						class="input mt-2 resize-none overflow-hidden"
-						{@attach autosize}
-					></textarea>
+						{@attach autosize}></textarea>
 				</div>
 			{/each}
 		</div>

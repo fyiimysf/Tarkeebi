@@ -96,22 +96,43 @@
 		return copyWithExecCommand(text);
 	}
 
+	function shareData(shareUrl: string): ShareData {
+		// Android's share sheet uses the title as the subject and the URL as the
+		// body. Some browsers ignore `url` unless there is also text, so include
+		// the title as text as well.
+		return title ? { title, text: title, url: shareUrl } : { url: shareUrl };
+	}
+
+	async function tryNativeShare(shareUrl: string) {
+		if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
+			return false;
+		}
+
+		const payloads: ShareData[] = [shareData(shareUrl)];
+		// A few Android builds reject a payload with both text and a URL.
+		// Retry with the URL alone before giving up on the native sheet.
+		if (title) payloads.push({ url: shareUrl });
+
+		for (const data of payloads) {
+			try {
+				await navigator.share(data);
+				return true;
+			} catch (error) {
+				// User dismissed the sheet — do nothing.
+				if (error instanceof DOMException && error.name === 'AbortError') return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** Opens the OS share sheet; falls back to copying the link where the
 	 *  Web Share API isn't available (e.g. most desktop browsers, or an
 	 *  insecure origin, where mobile browsers hide it entirely). */
 	async function handleShare() {
 		const shareUrl = absoluteUrl(url);
 
-		if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-			try {
-				await navigator.share(title ? { title, url: shareUrl } : { url: shareUrl });
-				return;
-			} catch (error) {
-				// User dismissed the sheet — do nothing.
-				if (error instanceof DOMException && error.name === 'AbortError') return;
-				// Any other failure falls through to the copy fallback.
-			}
-		}
+		if (await tryNativeShare(shareUrl)) return;
 
 		if (await copyLink(shareUrl)) {
 			copied = true;

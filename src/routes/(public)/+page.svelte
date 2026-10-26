@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { ChefHat, Clock, Users } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { fly } from 'svelte/transition';
 	import { servingsLabel } from '#lib/format.ts';
+	import { flyParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatMinutes } from '#lib/time.ts';
 	import type { PageProps } from './$types';
@@ -54,6 +56,7 @@
 {#if data.featured}
 	<a
 		href={resolve('/(public)/r/[slug]', { slug: data.featured.slug })}
+		in:fly={flyParams({ y: 8, duration: 200 })}
 		class="card group mt-8 flex flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5 md:flex-row"
 	>
 		<div
@@ -103,9 +106,9 @@
 {#if data.recipes.length > 0}
 	<h2 class="mt-12 font-display text-2xl font-bold">{m.public_all_recipes()}</h2>
 	<ul class="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-		{#each data.recipes as recipe (recipe.id)}
+		{#each data.recipes as recipe, index (recipe.id)}
 			{@const minutes = totalMinutes(recipe.prepMinutes, recipe.cookMinutes)}
-			<li>
+			<li in:fly={flyParams({ y: 10, duration: 200, delay: Math.min(index * 25, 150) })}>
 				<a
 					href={resolve('/(public)/r/[slug]', { slug: recipe.slug })}
 					class="card group flex h-full flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5"

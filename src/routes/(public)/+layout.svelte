@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { m } from '#lib/paraglide/messages.js';
 	import Logo from '#lib/components/Logo.svelte';
+	import PageTransition from '#lib/components/PageTransition.svelte';
 	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
 	import type { LayoutProps } from './$types';
 
@@ -31,7 +32,9 @@
 	</header>
 
 	<main class="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
-		{@render children()}
+		<PageTransition>
+			{@render children()}
+		</PageTransition>
 	</main>
 
 	<footer

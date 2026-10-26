@@ -311,7 +311,9 @@
 
 	/* One switch disables every transition, animation, and smooth scroll. The
 	   `!important` is deliberate: component-level `transition` declarations
-	   would otherwise win over this rule. */
+	   would otherwise win over this rule. Svelte's JS transitions animate via
+	   the Web Animations API and are not covered here; `#lib/motion.ts` reads
+	   `prefersReducedMotion` for those instead. */
 	@media (prefers-reduced-motion: reduce) {
 		*,
 		*::before,
@@ -431,6 +433,106 @@
 		@apply max-w-[60ch] font-serif text-lg leading-[1.65] text-fg-muted sm:text-xl;
 		font-variant-numeric: oldstyle-nums proportional-nums;
 		text-wrap: pretty;
+	}
+
+	/* Markdown-rendered recipe steps. The wrapper supplies the reading size and
+	   colour, so spacing and inline affordances live here without overriding a
+	   step shown large in cook mode. */
+	.markdown > :first-child {
+		margin-block-start: 0;
+	}
+
+	.markdown > :last-child {
+		margin-block-end: 0;
+	}
+
+	.markdown p {
+		margin-block: 0.55em;
+	}
+
+	.markdown strong {
+		font-weight: 700;
+		color: var(--color-fg);
+	}
+
+	.markdown em {
+		font-style: italic;
+	}
+
+	.markdown del {
+		text-decoration: line-through;
+	}
+
+	.markdown a {
+		color: var(--color-accent);
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+	}
+
+	.markdown code {
+		border-radius: 0.3rem;
+		background: var(--color-surface-sunken);
+		padding: 0.08em 0.3em;
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+	}
+
+	.markdown ul,
+	.markdown ol {
+		margin-block: 0.55em;
+		padding-inline-start: 1.3em;
+	}
+
+	.markdown ul {
+		list-style: disc;
+	}
+
+	.markdown ol {
+		list-style: decimal;
+	}
+
+	.markdown li + li {
+		margin-block-start: 0.25em;
+	}
+
+	.markdown li::marker {
+		color: var(--color-accent);
+	}
+
+	.markdown blockquote {
+		margin-block: 0.7em;
+		border-inline-start: 2px solid var(--color-accent);
+		padding-inline-start: 0.9em;
+		color: var(--color-fg-muted);
+	}
+
+	.markdown hr {
+		margin-block: 1em;
+		border: 0;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.markdown :is(h3, h4, h5, h6) {
+		margin-block: 0.7em 0.3em;
+		font-family: var(--font-display);
+		font-size: 1.05em;
+		font-weight: 700;
+		line-height: 1.25;
+		color: var(--color-fg);
+	}
+
+	.markdown pre {
+		margin-block: 0.7em;
+		overflow-x: auto;
+		border-radius: 0.5rem;
+		background: var(--color-surface-sunken);
+		padding: 0.75rem 0.9rem;
+	}
+
+	.markdown pre code {
+		background: transparent;
+		padding: 0;
+		font-size: 0.82em;
 	}
 
 	.chip {

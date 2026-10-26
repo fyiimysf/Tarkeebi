@@ -4,6 +4,8 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import type { Attachment } from 'svelte/attachments';
+	import { clearAllCaches } from '#lib/cache.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SessionUser } from '#lib/types.ts';
 
@@ -11,6 +13,13 @@
 	let { user, href }: { user: SessionUser; href?: string } = $props();
 
 	let signOutForm = $state<HTMLFormElement>();
+
+	const bindSignOutForm: Attachment<HTMLFormElement> = (node) => {
+		signOutForm = node;
+		return () => {
+			if (signOutForm === node) signOutForm = undefined;
+		};
+	};
 
 	const initials = $derived(
 		user.name
@@ -86,9 +95,10 @@
 {/if}
 
 <form
-	bind:this={signOutForm}
+	{@attach bindSignOutForm}
 	method="post"
 	action={resolve('/(app)/app/sign-out')}
 	use:enhance
+	onsubmit={clearAllCaches}
 	class="hidden"
 ></form>

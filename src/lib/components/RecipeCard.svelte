@@ -2,7 +2,9 @@
 	import { ChefHat, Clock, Globe, LoaderCircle, Star, Users } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { navigating } from '$app/state';
+	import { fade } from 'svelte/transition';
 	import { servingsLabel } from '#lib/format.ts';
+	import { fadeParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatMinutes } from '#lib/time.ts';
 	import type { RecipeSummary } from '#lib/types.ts';
@@ -21,6 +23,7 @@
 >
 	{#if opening}
 		<span
+			transition:fade={fadeParams(140)}
 			class="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-canvas/65 backdrop-blur-[1px]"
 		>
 			<span

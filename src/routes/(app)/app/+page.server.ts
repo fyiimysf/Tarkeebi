@@ -2,22 +2,31 @@ import { env } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
 import { getDb } from '#lib/server/db/index.ts';
 import { recipe, tag } from '#lib/server/db/schema.ts';
+import type { DashboardContentData } from '#lib/types.ts';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	const db = getDb(env.DB);
-	const userId = locals.user!.id;
-
+export const load: PageServerLoad = ({ locals }) => {
 	// The dashboard fetches the full (summary-sized) list once and filters it in
 	// the browser. Search, filters and sorting then update instantly without a
-	// server round-trip. Returning every summary also makes the no-JS form work:
-	// the first render reads the request URL and filters on the server.
-	const rows = await db.query.recipe.findMany({
-		where: eq(recipe.userId, userId),
-		with: {
-			recipeTags: { with: { tag: { columns: { name: true, slug: true } } } }
-		}
-	});
+	// server round-trip. Returning the promise lets the route shell and cached
+	// snapshot paint while the list streams in.
+	const content = loadDashboard(locals.user!.id);
+	content.catch(() => {});
+	return { content };
+};
+
+async function loadDashboard(userId: string): Promise<DashboardContentData> {
+	const db = getDb(env.DB);
+
+	const [rows, tagRows] = await Promise.all([
+		db.query.recipe.findMany({
+			where: eq(recipe.userId, userId),
+			with: {
+				recipeTags: { with: { tag: { columns: { name: true, slug: true } } } }
+			}
+		}),
+		db.select({ name: tag.name, slug: tag.slug }).from(tag).where(eq(tag.userId, userId))
+	]);
 
 	const recipes = rows.map((row) => ({
 		id: row.id,
@@ -37,10 +46,5 @@ export const load: PageServerLoad = async ({ locals }) => {
 		tags: row.recipeTags.map((link) => link.tag)
 	}));
 
-	const tagRows = await db
-		.select({ name: tag.name, slug: tag.slug })
-		.from(tag)
-		.where(eq(tag.userId, userId));
-
 	return { recipes, tags: tagRows };
-};
+}

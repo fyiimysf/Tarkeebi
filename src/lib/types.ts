@@ -40,8 +40,45 @@ export type RecipeSummary = {
 	tags: RecipeTagRef[];
 };
 
+/** The dashboard also sorts by creation order and total time. */
+export type RecipeSummaryData = RecipeSummary & {
+	createdAt: Date;
+	totalMinutes: number;
+};
+
+/** The streamed dashboard payload: every summary plus the user's tag list. */
+export type DashboardContentData = {
+	recipes: RecipeSummaryData[];
+	tags: RecipeTagRef[];
+};
+
 export type RecipeDetail = RecipeSummary & {
 	sourceUrl: string | null;
+	ingredients: RecipeIngredient[];
+	steps: RecipeStep[];
+};
+
+/** The full shape returned by the owner-only recipe route. */
+export type RecipeDetailData = {
+	id: string;
+	title: string;
+	description: string | null;
+	notes: string | null;
+	imageUrl: string | null;
+	servings: number;
+	prepMinutes: number | null;
+	cookMinutes: number | null;
+	isFavorite: boolean;
+	isPublic: boolean;
+	publishedAt: Date | null;
+	slug: string | null;
+	sourceUrl: string | null;
+	myCookCount: number;
+	myLastCookedAt: Date | null;
+	cookedCount: number;
+	lastCookedAt: Date | null;
+	createdAt: Date;
+	tags: RecipeTagRef[];
 	ingredients: RecipeIngredient[];
 	steps: RecipeStep[];
 };

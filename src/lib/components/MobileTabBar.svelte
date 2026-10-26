@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { navigating, page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { BookOpen, LoaderCircle, Plus, Settings } from '@lucide/svelte';
+	import { BookOpen, CookingPot, LoaderCircle, Plus, Settings } from '@lucide/svelte';
+	import { fade } from 'svelte/transition';
+	import { fadeParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
 	/**
-	 * The mobile-only bottom bar: a classic full-width bar with two tabs, and an
-	 * Add button set into a notched, indented slot in the middle of the top edge.
+	 * The mobile-only bottom bar: a classic full-width bar with two tabs, and a
+	 * contextual action button set into a notched, indented slot in the middle
+	 * of the top edge. It creates a recipe on the dashboard and opens cook mode
+	 * while viewing a recipe.
 	 *
 	 * The notch is a real hole in the bar's surface, produced with a `clip-path`
 	 * referencing an SVG `clipPath` in `userSpaceOnUse` units, so the bite is a
@@ -33,6 +37,29 @@
 	];
 
 	const newRecipeHref = resolve('/(app)/app/recipes/new');
+
+	/**
+	 * The FAB follows the current page: while a recipe is open it becomes the
+	 * cook-mode shortcut, so the page itself does not need a second floating
+	 * button fighting this one for the same slot.
+	 */
+	const recipeId = $derived(
+		page.route.id === '/(app)/app/recipes/[id]' ? (page.params.id ?? '') : ''
+	);
+
+	const fab = $derived(
+		recipeId
+			? {
+					href: resolve('/(app)/app/recipes/[id]/cook', { id: recipeId }),
+					label: () => m.recipe_cook_mode(),
+					icon: CookingPot
+				}
+			: {
+					href: newRecipeHref,
+					label: () => m.nav_new_recipe(),
+					icon: Plus
+				}
+	);
 
 	/**
 	 * The FAB rests with its centre exactly on the bar's top edge, so the
@@ -75,7 +102,7 @@
 		);
 	}
 
-	const creating = $derived(isPending(newRecipeHref));
+	const fabPending = $derived(isPending(fab.href));
 
 	/**
 	 * The recipe form owns the bottom edge — it has its own sticky Save/Cancel
@@ -87,6 +114,7 @@
 </script>
 
 {#if !hidden}
+	{@const FabIcon = fab.icon}
 	<!-- Spacer only: keeps page content clear of the fixed bar. -->
 	<div
 		class="no-print h-[calc(4.5rem+env(safe-area-inset-bottom))] md:hidden"
@@ -141,25 +169,25 @@
 				{/each}
 			</nav>
 
-			<!-- Compose button, lifted so it rests inside the notch. Icon-only: the
-			     accessible name carries the meaning, and a text label would overflow
-			     the bite in the longer locales. -->
-
+			<!-- Action button, lifted so it rests inside the notch. Both the icon
+			     and the visible label follow the current page and locale. -->
 			<a
-				href={newRecipeHref}
-				aria-label={m.nav_new_recipe()}
-				title={m.nav_new_recipe()}
-				aria-busy={creating}
-				class=" absolute inset-s-1/2 top-0 grid h-14 w-28 -translate-x-1/2 place-items-center rounded-b-full bg-accent text-accent-fg shadow-raised transition-colors hover:bg-accent-hover motion-safe:active:scale-95 rtl:translate-x-1/2"
+				href={fab.href}
+				aria-label={fab.label()}
+				title={fab.label()}
+				aria-busy={fabPending}
+				class="absolute inset-s-1/2 top-0 grid h-14 w-28 -translate-x-1/2 place-items-center rounded-b-full bg-accent text-accent-fg shadow-raised transition-colors hover:bg-accent-hover motion-safe:active:scale-95 rtl:translate-x-1/2"
 			>
-				<span class="flex flex-col items-center justify-center pb-1">
-					{#if creating}
-						<LoaderCircle class="size-8 animate-spin" />
-					{:else}
-						<Plus class="size-8" title="Add" />
-					{/if}
-					<p class="text-[11px] font-medium">Add</p>
-				</span>
+				{#key fab.href}
+					<span class="flex flex-col items-center justify-center pb-1" in:fade={fadeParams(140)}>
+						{#if fabPending}
+							<LoaderCircle class="size-7 animate-spin" />
+						{:else}
+							<FabIcon class="size-7" aria-hidden="true" />
+						{/if}
+						<p class="text-[11px] font-medium">{fab.label()}</p>
+					</span>
+				{/key}
 			</a>
 		</div>
 	</div>

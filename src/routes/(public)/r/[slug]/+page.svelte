@@ -1,20 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import {
-		ArrowLeft,
-		Clock,
-		ExternalLink,
-		Flame,
-		GlobeLock,
-		Printer,
-		Users
-	} from '@lucide/svelte';
+	import { ArrowLeft, Clock, ExternalLink, Flame, Printer, Users } from '@lucide/svelte';
 	import { servingsLabel } from '#lib/format.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatMinutes } from '#lib/time.ts';
 	import CookLogButton from '#lib/components/CookLogButton.svelte';
 	import IngredientList from '#lib/components/IngredientList.svelte';
+	import Markdown from '#lib/components/Markdown.svelte';
 	import ShareLinkButton from '#lib/components/ShareLinkButton.svelte';
 	import type { PageProps } from './$types';
 
@@ -114,16 +107,6 @@
 		</div>
 	{/if}
 
-	{#if !recipe.isPublic}
-		<div
-			class="no-print mt-6 flex items-start gap-2.5 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-fg-muted"
-			role="note"
-		>
-			<GlobeLock class="mt-0.5 size-4 shrink-0 text-accent" />
-			<span>{m.recipe_private_note()}</span>
-		</div>
-	{/if}
-
 	<header class="mt-6 sm:mt-8">
 		<h1
 			class="text-pretty font-display text-[2rem] font-bold leading-[1.05] tracking-[-0.03em] sm:text-5xl"
@@ -210,7 +193,7 @@
 							>
 								{String(index + 1).padStart(2, '0')}
 							</span>
-							<p class="prose-editorial whitespace-pre-line pt-0.5">{step.instruction}</p>
+							<Markdown source={step.instruction} class="prose-editorial pt-0.5" />
 						</li>
 					{/each}
 				</ol>

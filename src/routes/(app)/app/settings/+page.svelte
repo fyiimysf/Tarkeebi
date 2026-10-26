@@ -2,6 +2,7 @@
 	import { Avatar } from 'bits-ui';
 	import { LogOut, Monitor, Moon, Sun } from '@lucide/svelte';
 	import { enhance } from '$app/forms';
+	import { clearAllCaches } from '#lib/cache.ts';
 	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { theme, type Theme } from '#lib/theme.svelte.ts';
@@ -54,7 +55,7 @@
 			</div>
 		</div>
 
-		<form method="post" action="?/signOut" use:enhance class="mt-5 border-t border-border pt-5">
+		<form method="post" action="?/signOut" use:enhance onsubmit={clearAllCaches} class="mt-5 border-t border-border pt-5">
 			<button class="btn-danger">
 				<LogOut class="size-4" />
 				{m.nav_sign_out()}
