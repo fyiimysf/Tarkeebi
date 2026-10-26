@@ -162,7 +162,7 @@
 
 <button
 	type="button"
-	class={variant}
+	class="{variant} min-w-0 max-w-full"
 	onclick={handleShare}
 	aria-label={copied
 		? m.public_copied()

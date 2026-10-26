@@ -86,7 +86,7 @@
 	<title>{recipe.title} · {m.app_name()}</title>
 </svelte:head>
 
-<article class="mt-3">
+<article class="mt-3 min-w-0">
 	{#if recipe.imageUrl}
 		<div class="card mb-6 overflow-hidden">
 			<img src={recipe.imageUrl} alt="" class="aspect-[16/9] w-full object-cover" />
@@ -256,7 +256,7 @@
 			{#each recipe.tags as tag (tag.slug)}
 				<a
 					href={tagHref(tag.slug)}
-					class="rounded-full border border-border px-3 py-1 text-xs font-medium text-fg-muted transition hover:border-accent hover:text-accent"
+					class="max-w-full break-words rounded-full border border-border px-3 py-1 text-xs font-medium text-fg-muted transition hover:border-accent hover:text-accent"
 				>
 					#{tag.name}
 				</a>
@@ -264,10 +264,10 @@
 		</div>
 	{/if}
 
-	<div class="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+	<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
 		<IngredientList ingredients={recipe.ingredients} baseServings={recipe.servings} />
 
-		<section class="card p-5 sm:p-6">
+		<section class="card min-w-0 p-5 sm:p-6">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<h2 class="font-display text-2xl font-bold tracking-tight">
 					{m.recipe_steps()}
@@ -278,13 +278,13 @@
 			{#if recipe.steps.length > 0}
 				<ol class="mt-4 space-y-4">
 					{#each recipe.steps as step, index (step.id)}
-						<li class="flex gap-3">
+						<li class="flex min-w-0 gap-3">
 							<span
 								class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent-soft-fg"
 							>
 								{String(index + 1).padStart(2, '0')}
 							</span>
-							<Markdown source={step.instruction} class="prose-editorial pt-0.5" />
+							<Markdown source={step.instruction} class="prose-editorial min-w-0 flex-1 pt-0.5" />
 						</li>
 					{/each}
 				</ol>

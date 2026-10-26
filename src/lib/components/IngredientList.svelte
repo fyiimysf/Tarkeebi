@@ -33,7 +33,7 @@
 	}
 </script>
 
-<section class={variant === 'card' ? 'card p-4 sm:p-6' : ''}>
+<section class={variant === 'card' ? 'card min-w-0 p-4 sm:p-6' : 'min-w-0'}>
 	<div class="flex flex-col gap-3">
 		<div class="flex items-baseline justify-between gap-3">
 			<h2 class="font-display text-2xl font-bold tracking-tight">
@@ -84,7 +84,7 @@
 			{#each ingredients as ingredient (ingredient.id)}
 				<li>
 					<label
-						class="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-3 transition hover:bg-accent-soft/60"
+						class="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg px-2 py-3 transition hover:bg-accent-soft/60"
 					>
 						<input
 							type="checkbox"
@@ -103,20 +103,20 @@
 								</span>
 							{/if}
 							{#if ingredient.unit}
-								<span class="text-sm font-semibold text-fg-subtle">
+								<span class="min-w-0 text-sm font-semibold text-fg-subtle">
 									{ingredient.unit}
 								</span>
 							{/if}
 							<span
 								class={[
-									'min-w-0 font-medium',
+									'min-w-0 break-words font-medium',
 									{ 'line-through opacity-60': checked[ingredient.id] }
 								]}
 							>
 								{ingredient.name}
 							</span>
 							{#if ingredient.note}
-								<span class="text-sm italic text-fg-subtle">
+								<span class="min-w-0 text-sm italic text-fg-subtle">
 									({ingredient.note})
 								</span>
 							{/if}

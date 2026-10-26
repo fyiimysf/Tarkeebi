@@ -34,7 +34,7 @@
 	{/each}
 {/snippet}
 
-<div class="markdown {className}">
+<div class="markdown min-w-0 {className}">
 	{#each blocks as block, index (index)}
 		{#if block.type === 'paragraph'}
 			<p>{@render inline(block.children)}</p>

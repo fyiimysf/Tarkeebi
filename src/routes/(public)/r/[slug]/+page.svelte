@@ -94,7 +94,7 @@
 	</a>
 </div>
 
-<article class="mx-auto mt-4 max-w-3xl">
+<article class="mx-auto mt-4 min-w-0 max-w-3xl">
 	{#if recipe.imageUrl}
 		<!-- Bleed to the screen edges on phones; framed like a print plate on wider screens. -->
 		<div class="-mx-4 overflow-hidden border-y border-border sm:mx-0 sm:rounded-2xl sm:border">
@@ -121,7 +121,7 @@
 			class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border py-4 text-sm text-fg-subtle sm:gap-x-5"
 		>
 			{#if recipe.authorName}
-				<span>{m.public_by({ name: recipe.authorName })}</span>
+				<span class="min-w-0 break-words">{m.public_by({ name: recipe.authorName })}</span>
 			{/if}
 			{#if publishedLabel}
 				<time datetime={recipe.publishedAt?.toISOString()}>{publishedLabel}</time>
@@ -159,7 +159,7 @@
 			<div class="hidden md:block">
 				<CookLogButton action="?/markCooked" count={recipe.cookCount} />
 			</div>
-			<div class="ms-auto flex flex-1 items-center justify-end gap-2 md:flex-none">
+			<div class="ms-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 md:flex-none">
 				<ShareLinkButton url={canonical} title={recipe.title} />
 				<button type="button" class="btn-secondary" onclick={() => window.print()}>
 					<Printer class="size-4" />
@@ -179,21 +179,21 @@
 		{/if}
 	</header>
 
-	<div class="mt-8 grid gap-10 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+	<div class="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
 		<IngredientList ingredients={recipe.ingredients} baseServings={recipe.servings} />
 
-		<section>
+		<section class="min-w-0">
 			<h2 class="font-display text-2xl font-bold tracking-tight">{m.recipe_steps()}</h2>
 			{#if recipe.steps.length > 0}
 				<ol class="mt-4 space-y-6">
 					{#each recipe.steps as step, index (step.id)}
-						<li class="flex gap-4">
+						<li class="flex min-w-0 gap-4">
 							<span
 								class="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft font-mono text-sm font-semibold text-accent-soft-fg"
 							>
 								{String(index + 1).padStart(2, '0')}
 							</span>
-							<Markdown source={step.instruction} class="prose-editorial pt-0.5" />
+							<Markdown source={step.instruction} class="prose-editorial min-w-0 flex-1 pt-0.5" />
 						</li>
 					{/each}
 				</ol>
@@ -223,10 +223,10 @@
 <div
 	class="no-print fixed inset-x-0 bottom-0 z-30 border-t border-border bg-canvas/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden"
 >
-	<div class="mx-auto flex max-w-3xl items-center gap-2">
-		<a href={cookHref} class="btn-primary flex-1 whitespace-nowrap">
-			<Flame class="size-4" />
-			{m.recipe_cook_mode()}
+	<div class="mx-auto flex w-full min-w-0 max-w-3xl items-center gap-2">
+		<a href={cookHref} class="btn-primary min-w-0 flex-1">
+			<Flame class="size-4 shrink-0" />
+			<span class="truncate">{m.recipe_cook_mode()}</span>
 		</a>
 		<CookLogButton action="?/markCooked" count={recipe.cookCount} />
 	</div>

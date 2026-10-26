@@ -276,14 +276,16 @@
 		/* Stop iOS/Android from auto-inflating text (and thus the whole layout) on rotate/zoom. */
 		-webkit-text-size-adjust: 100%;
 		text-size-adjust: 100%;
-		/* Long unbroken user strings (titles, notes, URLs) must not blow out their container. */
-		overflow-wrap: break-word;
+		/* Long unbroken user strings (titles, notes, URLs) must not blow out their
+		   container. `anywhere` also lets flex/grid items shrink below their
+		   min-content width, which `break-word` alone cannot do. */
+		overflow-wrap: anywhere;
 	}
 
 	body {
 		@apply bg-canvas font-sans text-fg antialiased;
 		/* Belt-and-braces against layout-scale jumps on mobile. */
-		overflow-wrap: break-word;
+		overflow-wrap: anywhere;
 	}
 
 	:focus-visible {
@@ -533,10 +535,12 @@
 		background: transparent;
 		padding: 0;
 		font-size: 0.82em;
+		/* Keep fenced code blocks scrollable instead of wrapping every line. */
+		overflow-wrap: normal;
 	}
 
 	.chip {
-		@apply inline-flex items-center gap-1.5 rounded-pill border border-border px-3 py-1 text-xs font-medium text-fg-muted
+		@apply inline-flex max-w-full items-center gap-1.5 rounded-pill border border-border px-3 py-1 text-xs font-medium text-fg-muted
 			transition-colors duration-(--duration-fast) hover:border-accent hover:text-accent;
 	}
 
