@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { ChefHat, Clock, Globe, Star, Users } from '@lucide/svelte';
+	import { ChefHat, Clock, Globe, LoaderCircle, Star, Users } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { navigating } from '$app/state';
 	import { servingsLabel } from '#lib/format.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatMinutes } from '#lib/time.ts';
@@ -9,12 +10,28 @@
 	let { recipe }: { recipe: RecipeSummary } = $props();
 
 	const totalMinutes = $derived((recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0));
+	const href = $derived(resolve('/(app)/app/recipes/[id]', { id: recipe.id }));
+	const opening = $derived(navigating.to?.url.pathname === href);
 </script>
 
 <a
-	href={resolve('/(app)/app/recipes/[id]', { id: recipe.id })}
-	class="card group flex h-full flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5"
+	{href}
+	class="card group relative flex h-full flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5"
+	aria-busy={opening}
 >
+	{#if opening}
+		<span
+			class="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-canvas/65 backdrop-blur-[1px]"
+		>
+			<span
+				class="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-2 text-xs font-medium text-fg shadow-raised"
+			>
+				<LoaderCircle class="size-4 animate-spin text-accent" />
+				{m.loading()}
+			</span>
+		</span>
+	{/if}
+
 	<div class="relative aspect-[4/3] w-full overflow-hidden bg-surface-sunken">
 		{#if recipe.imageUrl}
 			<img

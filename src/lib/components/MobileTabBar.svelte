@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { BookOpen, CirclePlus, Plus, Settings } from '@lucide/svelte';
+	import { BookOpen, LoaderCircle, Plus, Settings } from '@lucide/svelte';
 	import { m } from '#lib/paraglide/messages.js';
 
 	/**
@@ -45,7 +45,7 @@
 	 */
 	const fabSize = 56;
 	const notchGap = 8;
-	const notchRadius = fabSize / 1  + notchGap;
+	const notchRadius = fabSize / 1 + notchGap;
 
 	/**
 	 * The bar spans the viewport, and the notch clip needs the real width in
@@ -66,6 +66,16 @@
 	function isActive(tab: (typeof tabs)[number]) {
 		return page.route.id === tab.id || tab.also.includes(page.route.id ?? '');
 	}
+
+	function isPending(href: string) {
+		if (!navigating.to) return false;
+		const target = new URL(href, page.url.origin);
+		return (
+			target.pathname === navigating.to.url.pathname && target.search === navigating.to.url.search
+		);
+	}
+
+	const creating = $derived(isPending(newRecipeHref));
 
 	/**
 	 * The recipe form owns the bottom edge — it has its own sticky Save/Cancel
@@ -108,6 +118,7 @@
 				{#each tabs as tab, i (tab.id)}
 					{@const Icon = tab.icon}
 					{@const active = isActive(tab)}
+					{@const pending = isPending(tab.href)}
 					{#if i === 1}
 						<!-- The notch's empty lane; the FAB occupies it from above. -->
 						<span class="w-[5.5rem] shrink-0" aria-hidden="true"></span>
@@ -115,11 +126,16 @@
 					<a
 						href={tab.href}
 						aria-current={active ? 'page' : undefined}
+						aria-busy={pending}
 						class="flex flex-1 flex-col items-center justify-center gap-1 pt-2 text-[11px] font-medium {active
 							? 'text-accent'
 							: 'text-fg-subtle'}"
 					>
-						<Icon class="size-5" />
+						{#if pending}
+							<LoaderCircle class="size-5 animate-spin" />
+						{:else}
+							<Icon class="size-5" />
+						{/if}
 						<span>{tab.label()}</span>
 					</a>
 				{/each}
@@ -128,18 +144,20 @@
 			<!-- Compose button, lifted so it rests inside the notch. Icon-only: the
 			     accessible name carries the meaning, and a text label would overflow
 			     the bite in the longer locales. -->
-			
-			
-				
-			
+
 			<a
 				href={newRecipeHref}
 				aria-label={m.nav_new_recipe()}
 				title={m.nav_new_recipe()}
-				class=" absolute inset-s-1/2 top-0 grid h-14 w-28 -translate-x-1/2  place-items-center rounded-b-full bg-accent text-accent-fg shadow-raised transition-colors hover:bg-accent-hover motion-safe:active:scale-95 rtl:translate-x-1/2"
+				aria-busy={creating}
+				class=" absolute inset-s-1/2 top-0 grid h-14 w-28 -translate-x-1/2 place-items-center rounded-b-full bg-accent text-accent-fg shadow-raised transition-colors hover:bg-accent-hover motion-safe:active:scale-95 rtl:translate-x-1/2"
 			>
 				<span class="flex flex-col items-center justify-center pb-1">
-					<Plus  class="size-8" title={"Add"} />
+					{#if creating}
+						<LoaderCircle class="size-8 animate-spin" />
+					{:else}
+						<Plus class="size-8" title="Add" />
+					{/if}
 					<p class="text-[11px] font-medium">Add</p>
 				</span>
 			</a>

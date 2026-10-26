@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
-	import { Check, CookingPot } from '@lucide/svelte';
+	import { Check, CookingPot, LoaderCircle } from '@lucide/svelte';
 	import { cookedLabel } from '#lib/format.ts';
 	import { m } from '#lib/paraglide/messages.js';
 
@@ -51,13 +51,16 @@
 </script>
 
 <div class="no-print min-w-0">
-	<form method="post" {action} use:enhance={submit}>
+	<form method="post" {action} use:enhance={submit} aria-busy={submitting}>
 		<button
 			type="submit"
 			class="btn-secondary max-w-full {logged ? 'border-success/50 text-success' : ''}"
 			disabled={submitting}
 		>
-			{#if logged}
+			{#if submitting}
+				<LoaderCircle class="size-4 shrink-0 animate-spin" />
+				<span class="truncate">{m.recipe_saving()}</span>
+			{:else if logged}
 				<Check class="size-4 shrink-0" strokeWidth={2.5} />
 				<span class="truncate">{m.cook_logged()}</span>
 			{:else}

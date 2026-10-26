@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import {
 		BookOpen,
@@ -9,6 +9,7 @@
 		FilePenLine,
 		Globe,
 		Heart,
+		LoaderCircle,
 		Settings,
 		Sparkles
 	} from '@lucide/svelte';
@@ -108,6 +109,14 @@
 		if (item.filter) return current === item.filter;
 		return current !== 'favorites' && current !== 'drafts';
 	}
+
+	function isPending(href: string) {
+		if (!navigating.to) return false;
+		const target = new URL(href, page.url.origin);
+		return (
+			target.pathname === navigating.to.url.pathname && target.search === navigating.to.url.search
+		);
+	}
 </script>
 
 <div class="min-h-dvh">
@@ -129,14 +138,20 @@
 				{@const Icon = item.icon}
 				{@const active = isActive(item)}
 				{@const count = item.count()}
+				{@const pending = isPending(item.href)}
 				<a
 					href={item.href}
 					aria-current={active ? 'page' : undefined}
+					aria-busy={pending}
 					class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {active
 						? 'bg-accent-soft text-accent '
 						: 'text-fg-muted hover:bg-surface-sunken hover:text-fg '}"
 				>
-					<Icon class="size-5 shrink-0" />
+					{#if pending}
+						<LoaderCircle class="size-5 shrink-0 animate-spin" />
+					{:else}
+						<Icon class="size-5 shrink-0" />
+					{/if}
 					<span class="flex-1">{item.label()}</span>
 					{#if count !== undefined}
 						<span

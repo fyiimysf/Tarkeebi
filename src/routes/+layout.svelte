@@ -1,5 +1,6 @@
 <script lang="ts">
 	import favicon from '#lib/assets/favicon.svg';
+	import NavigationProgress from '#lib/components/NavigationProgress.svelte';
 	import { theme } from '#lib/theme.svelte.ts';
 	import './layout.css';
 	import type { LayoutProps } from './$types';
@@ -14,4 +15,5 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
+<NavigationProgress />
 {@render children()}

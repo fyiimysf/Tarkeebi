@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from "$app/state";
-	import { resolve } from "$app/paths";
-	import { enhance, type SubmitFunction } from "$app/forms";
-	import { Dialog } from "bits-ui";
+	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import { enhance, type SubmitFunction } from '$app/forms';
+	import { Dialog } from 'bits-ui';
 	import {
 		ArrowLeft,
 		Clock,
@@ -10,39 +10,56 @@
 		ExternalLink,
 		Globe,
 		GlobeLock,
+		LoaderCircle,
 		Pencil,
 		Share2,
 		Star,
 		Trash,
 		TriangleAlert,
 		Users,
-		X,
-	} from "@lucide/svelte";
-	import { cookedLabel, servingsLabel } from "#lib/format.ts";
-	import { m } from "#lib/paraglide/messages.js";
-	import { formatMinutes } from "#lib/time.ts";
-	import CookLogButton from "#lib/components/CookLogButton.svelte";
-	import HoldToDelete from "#lib/components/HoldToDelete.svelte";
-	import IngredientList from "#lib/components/IngredientList.svelte";
-	import ShareLinkButton from "#lib/components/ShareLinkButton.svelte";
-	import type { PageProps } from "./$types";
+		X
+	} from '@lucide/svelte';
+	import { cookedLabel, servingsLabel } from '#lib/format.ts';
+	import { m } from '#lib/paraglide/messages.js';
+	import { formatMinutes } from '#lib/time.ts';
+	import CookLogButton from '#lib/components/CookLogButton.svelte';
+	import HoldToDelete from '#lib/components/HoldToDelete.svelte';
+	import IngredientList from '#lib/components/IngredientList.svelte';
+	import ShareLinkButton from '#lib/components/ShareLinkButton.svelte';
+	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	const recipe = $derived(data.recipe);
-	const totalMinutes = $derived(
-		(recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0),
-	);
+	const totalMinutes = $derived((recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0));
 	const publicUrl = $derived(
-		recipe.slug
-			? `${page.url.origin}${resolve("/(public)/r/[slug]", { slug: recipe.slug })}`
-			: null,
+		recipe.slug ? `${page.url.origin}${resolve('/(public)/r/[slug]', { slug: recipe.slug })}` : null
 	);
+
+	type RecipeAction = 'publish' | 'favorite' | 'share';
 
 	let deleteOpen = $state(false);
 	let deleting = $state(false);
 	let deleteForm: HTMLFormElement | null = $state(null);
+	let pendingAction = $state<RecipeAction | null>(null);
 	let ui = $state({ open: false });
+
+	const withPending =
+		(action: RecipeAction): SubmitFunction =>
+		() => {
+			pendingAction = action;
+			return async ({ update }) => {
+				try {
+					await update();
+				} finally {
+					pendingAction = null;
+				}
+			};
+		};
+
+	const handlePublish = withPending('publish');
+	const handleFavorite = withPending('favorite');
+	const handleShare = withPending('share');
 	const handleDelete: SubmitFunction = () => {
 		deleting = true;
 		return async ({ update }) => {
@@ -59,14 +76,14 @@
 	const lastCookedLabel = $derived(
 		recipe.myLastCookedAt
 			? new Intl.DateTimeFormat(undefined, {
-					dateStyle: "medium",
+					dateStyle: 'medium'
 				}).format(recipe.myLastCookedAt)
-			: null,
+			: null
 	);
 
 	function tagHref(slug: string) {
 		const params = new URLSearchParams({ tag: slug });
-		return `${resolve("/(app)/app")}?${params}`;
+		return `${resolve('/(app)/app')}?${params}`;
 	}
 </script>
 
@@ -75,13 +92,13 @@
 </svelte:head>
 
 <div class="no-print flex items-center justify-between gap-3">
-	<a href={resolve("/(app)/app")} class="btn-ghost -ms-2">
+	<a href={resolve('/(app)/app')} class="btn-ghost -ms-2">
 		<ArrowLeft class="size-4 rtl:rotate-180" />
 		{m.nav_recipes()}
 	</a>
 	<div class="flex items-center gap-1">
 		<a
-			href={resolve("/(app)/app/recipes/[id]/edit", { id: recipe.id })}
+			href={resolve('/(app)/app/recipes/[id]/edit', { id: recipe.id })}
 			class="btn-icon"
 			aria-label={m.recipe_edit_title()}
 			title={m.recipe_edit_title()}
@@ -104,18 +121,12 @@
 <article class="mt-3">
 	{#if recipe.imageUrl}
 		<div class="card mb-6 overflow-hidden">
-			<img
-				src={recipe.imageUrl}
-				alt=""
-				class="aspect-[16/9] w-full object-cover"
-			/>
+			<img src={recipe.imageUrl} alt="" class="aspect-[16/9] w-full object-cover" />
 		</div>
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-		<h1
-			class="font-display text-3xl font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl"
-		>
+		<h1 class="font-display text-3xl font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl">
 			{recipe.title}
 		</h1>
 		{#if publicUrl}
@@ -134,36 +145,55 @@
 		<!-- Action icons, pushed to the inline end of the title row -->
 		<div class="no-print ms-auto flex items-center gap-1">
 			{#if publicUrl}
-				<ShareLinkButton
-					url={publicUrl}
-					title={recipe.title}
-					variant="btn-icon"
-					iconOnly
-				/>
+				<ShareLinkButton url={publicUrl} title={recipe.title} variant="btn-icon" iconOnly />
 			{:else}
-				<form method="post" action="?/ensureSlug" use:enhance>
+				<form
+					method="post"
+					action="?/ensureSlug"
+					use:enhance={handleShare}
+					aria-busy={pendingAction === 'share'}
+				>
 					<button
 						class="btn-icon"
-						aria-label={m.recipe_create_share_link()}
-						title={m.recipe_create_share_link()}
+						disabled={pendingAction !== null}
+						aria-label={pendingAction === 'share'
+							? m.recipe_saving()
+							: m.recipe_create_share_link()}
+						title={pendingAction === 'share' ? m.recipe_saving() : m.recipe_create_share_link()}
 					>
-						<Share2 class="size-5" />
+						{#if pendingAction === 'share'}
+							<LoaderCircle class="size-5 animate-spin" />
+						{:else}
+							<Share2 class="size-5" />
+						{/if}
 					</button>
 				</form>
 			{/if}
 
-			<form method="post" action="?/togglePublished" use:enhance>
+			<form
+				method="post"
+				action="?/togglePublished"
+				use:enhance={handlePublish}
+				aria-busy={pendingAction === 'publish'}
+			>
 				<button
 					class="btn-icon {recipe.isPublic ? 'text-success ' : ''}"
+					disabled={pendingAction !== null}
 					aria-pressed={recipe.isPublic}
-					aria-label={recipe.isPublic
-						? m.recipe_published()
-						: m.recipe_publish()}
-					title={recipe.isPublic
-						? m.recipe_published()
-						: m.recipe_publish()}
+					aria-label={pendingAction === 'publish'
+						? m.recipe_publishing()
+						: recipe.isPublic
+							? m.recipe_published()
+							: m.recipe_publish()}
+					title={pendingAction === 'publish'
+						? m.recipe_publishing()
+						: recipe.isPublic
+							? m.recipe_published()
+							: m.recipe_publish()}
 				>
-					{#if recipe.isPublic}
+					{#if pendingAction === 'publish'}
+						<LoaderCircle class="size-5 animate-spin" />
+					{:else if recipe.isPublic}
 						<Globe class="size-5" />
 					{:else}
 						<GlobeLock class="size-5" />
@@ -171,24 +201,44 @@
 				</button>
 			</form>
 
-			<form method="post" action="?/toggleFavorite" use:enhance>
+			<form
+				method="post"
+				action="?/toggleFavorite"
+				use:enhance={handleFavorite}
+				aria-busy={pendingAction === 'favorite'}
+			>
 				<button
 					class="btn-icon {recipe.isFavorite ? 'text-accent ' : ''}"
+					disabled={pendingAction !== null}
 					aria-pressed={recipe.isFavorite}
-					aria-label={recipe.isFavorite
-						? m.recipe_favorited()
-						: m.recipe_favorite()}
-					title={recipe.isFavorite
-						? m.recipe_favorited()
-						: m.recipe_favorite()}
+					aria-label={pendingAction === 'favorite'
+						? m.recipe_saving()
+						: recipe.isFavorite
+							? m.recipe_favorited()
+							: m.recipe_favorite()}
+					title={pendingAction === 'favorite'
+						? m.recipe_saving()
+						: recipe.isFavorite
+							? m.recipe_favorited()
+							: m.recipe_favorite()}
 				>
-					<Star
-						class="size-5 {recipe.isFavorite ? 'fill-current' : ''}"
-					/>
+					{#if pendingAction === 'favorite'}
+						<LoaderCircle class="size-5 animate-spin" />
+					{:else}
+						<Star class="size-5 {recipe.isFavorite ? 'fill-current' : ''}" />
+					{/if}
 				</button>
 			</form>
 		</div>
 	</div>
+
+	<p class="sr-only" role="status" aria-live="polite">
+		{#if pendingAction === 'publish'}
+			{m.recipe_publishing()}
+		{:else if pendingAction}
+			{m.recipe_saving()}
+		{/if}
+	</p>
 
 	{#if recipe.description}
 		<p class="prose-editorial-lg mt-2">{recipe.description}</p>
@@ -247,21 +297,14 @@
 	{/if}
 
 	<div class="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-		<IngredientList
-			ingredients={recipe.ingredients}
-			baseServings={recipe.servings}
-		/>
+		<IngredientList ingredients={recipe.ingredients} baseServings={recipe.servings} />
 
 		<section class="card p-5 sm:p-6">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<h2 class="font-display text-2xl font-bold tracking-tight">
 					{m.recipe_steps()}
 				</h2>
-				<CookLogButton
-					action="?/markCooked"
-					count={recipe.myCookCount}
-					showCount={false}
-				/>
+				<CookLogButton action="?/markCooked" count={recipe.myCookCount} showCount={false} />
 			</div>
 
 			{#if recipe.steps.length > 0}
@@ -271,7 +314,7 @@
 							<span
 								class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent-soft-fg"
 							>
-								{String(index + 1).padStart(2, "0")}
+								{String(index + 1).padStart(2, '0')}
 							</span>
 							<p class="prose-editorial whitespace-pre-line pt-0.5">
 								{step.instruction}
@@ -320,10 +363,7 @@
 		/>
 		<!-- The centering transform sits on this wrapper, firmly outside the
          entrance animation, so the panel never renders off-center. -->
-		<div
-			class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2"
-			data-dialog-layer
-		>
+		<div class="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2" data-dialog-layer>
 			<Dialog.Content
 				class="w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-danger/40 bg-surface p-5 shadow-lifted sm:p-6"
 				onOpenAutoFocus={() => (ui.open = true)}
@@ -337,14 +377,10 @@
 							<TriangleAlert class="size-5" />
 						</span>
 						<div class="min-w-0 flex-1">
-							<Dialog.Title
-								class="font-display text-lg font-semibold text-danger"
-							>
+							<Dialog.Title class="font-display text-lg font-semibold text-danger">
 								{m.recipe_delete()}
 							</Dialog.Title>
-							<Dialog.Description
-								class="mt-1 text-sm text-danger"
-							>
+							<Dialog.Description class="mt-1 text-sm text-danger">
 								{m.recipe_delete_confirm()}
 							</Dialog.Description>
 						</div>
@@ -372,19 +408,12 @@
 						use:enhance={handleDelete}
 					>
 						<HoldToDelete
-							label={deleting
-								? m.recipe_deleting()
-								: m.recipe_hold_to_delete()}
+							label={deleting ? m.recipe_deleting() : m.recipe_hold_to_delete()}
 							duration={3000}
 							disabled={deleting}
 							onComplete={() => deleteForm?.requestSubmit()}
 						/>
-						<button
-							type="submit"
-							class="sr-only"
-							tabindex="-1"
-							aria-hidden="true"
-						></button>
+						<button type="submit" class="sr-only" tabindex="-1" aria-hidden="true"></button>
 					</form>
 				</div>
 			</Dialog.Content>
@@ -394,8 +423,8 @@
 
 <!-- Cook mode stays one thumb-tap away. -->
 <a
-	href={resolve("/(app)/app/recipes/[id]/cook", { id: recipe.id })}
-	class="hidden no-print mb-15 fixed inset-s-1/2 -translate-x-1/2 left-32  bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] z-40 md:grid h-14 w-58  select-none place-items-center rounded-t-2xl bg-accent text-accent-fg shadow-lifted shadow-accent/30 transition hover:bg-accent-hover motion-safe:active:scale-95 md:bottom-6"
+	href={resolve('/(app)/app/recipes/[id]/cook', { id: recipe.id })}
+	class="hidden no-print mb-15 fixed inset-s-1/2 -translate-x-1/2 left-32 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] z-40 md:grid h-14 w-58 select-none place-items-center rounded-t-2xl bg-accent text-accent-fg shadow-lifted shadow-accent/30 transition hover:bg-accent-hover motion-safe:active:scale-95 md:bottom-6"
 	aria-label={m.recipe_cook_mode()}
 	title={m.recipe_cook_mode()}
 >
@@ -405,8 +434,8 @@
 	</span>
 </a>
 <a
-	href={resolve("/(app)/app/recipes/[id]/cook", { id: recipe.id })}
-	class="md:hidden no-print pb-2 fixed inset-s-1/2 -translate-x-1/2  bottom-[calc(0rem+env(safe-area-inset-bottom)+1rem)] z-40 grid h-14 w-28   select-none place-items-center rounded-b-full bg-accent text-accent-fg shadow-lifted shadow-accent/30 transition hover:bg-accent-hover motion-safe:active:scale-95 "
+	href={resolve('/(app)/app/recipes/[id]/cook', { id: recipe.id })}
+	class="md:hidden no-print pb-2 fixed inset-s-1/2 -translate-x-1/2 bottom-[calc(0rem+env(safe-area-inset-bottom)+1rem)] z-40 grid h-14 w-28 select-none place-items-center rounded-b-full bg-accent text-accent-fg shadow-lifted shadow-accent/30 transition hover:bg-accent-hover motion-safe:active:scale-95"
 	aria-label={m.recipe_cook_mode()}
 	title={m.recipe_cook_mode()}
 >
