@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { BookOpen } from '@lucide/svelte';
 	import { m } from '#lib/paraglide/messages.js';
+	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
 	import Logo from '#lib/components/Logo.svelte';
 	import PageTransition from '#lib/components/PageTransition.svelte';
 	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
@@ -22,10 +24,11 @@
 			<a href={resolve('/(public)')} class="shrink-0">
 				<Logo />
 			</a>
-			<div class="flex items-center gap-1">
-				<a href={resolve('/(app)/app')} class="btn-ghost text-sm">
-					{m.public_recipe_box()}
+			<div class="flex items-center gap-0.5">
+				<a href={resolve('/(app)/app')} class="btn-ghost" aria-label={m.public_recipe_box()} title={m.public_recipe_box()}>
+					<BookOpen class="size-4" />
 				</a>
+				<LanguageSwitcher />
 				<ThemeToggle />
 			</div>
 		</div>
@@ -46,8 +49,13 @@
 			class="mx-auto flex w-full max-w-5xl flex-col gap-1 px-4 py-8 text-sm text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6"
 		>
 			<span>{m.app_name()} · {m.app_tagline()}</span>
-			<a href={resolve('/(app)/app')} class="hover:text-fg">
-				{m.public_recipe_box()} →
+			<a
+				href={resolve('/(app)/app')}
+				class="inline-flex items-center gap-1.5 hover:text-fg"
+				aria-label={m.public_recipe_box()}
+				title={m.public_recipe_box()}
+			>
+				<BookOpen class="size-4" />
 			</a>
 		</div>
 	</footer>

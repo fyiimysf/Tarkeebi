@@ -21,9 +21,9 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
-			<button {...props} type="button" class="btn-secondary w-full justify-start">
+			<button {...props} type="button" class="btn-ghost" aria-label={names[current] ?? current} title={names[current] ?? current}>
 				<Languages class="size-4" />
-				<span>{names[current] ?? current}</span>
+				<span class="text-xs uppercase">{current}</span>
 			</button>
 		{/snippet}
 	</DropdownMenu.Trigger>
