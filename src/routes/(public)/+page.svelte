@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { ChefHat, Clock, Users } from '@lucide/svelte';
+	import { ChefHat, Clock, Search, Users, X } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { fly } from 'svelte/transition';
 	import { servingsLabel } from '#lib/format.ts';
 	import { flyParams } from '#lib/motion.ts';
@@ -14,6 +16,11 @@
 
 	let content = $state<any>(null);
 	let failed = $state(false);
+	let searchTerm = $state(page.url.searchParams.get('q') ?? '');
+
+	$effect(() => {
+		searchTerm = page.url.searchParams.get('q') ?? '';
+	});
 
 	$effect(() => {
 		content = null;
@@ -27,6 +34,26 @@
 				failed = true;
 			});
 	});
+
+	function updateSearch() {
+		const url = new URL(page.url.href);
+		if (searchTerm.trim()) {
+			url.searchParams.set('q', searchTerm.trim());
+		} else {
+			url.searchParams.delete('q');
+		}
+		goto(url.pathname + url.search, { replaceState: true });
+	}
+
+	function onSearchInput(event: Event) {
+		searchTerm = (event.currentTarget as HTMLInputElement).value;
+		updateSearch();
+	}
+
+	function clearSearch() {
+		searchTerm = '';
+		updateSearch();
+	}
 
 	function totalMinutes(prep: number | null, cook: number | null) {
 		return (prep ?? 0) + (cook ?? 0);
@@ -64,8 +91,30 @@
 {:else if !content}
 	<PublicHomeSkeleton />
 {:else}
+	<div class="relative mt-8">
+		<Search class="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-fg-subtle" />
+		<input
+			type="search"
+			value={searchTerm}
+			oninput={onSearchInput}
+			placeholder={m.recipes_search()}
+			aria-label={m.recipes_search()}
+			class="input w-full ps-9 pe-9"
+		/>
+		{#if searchTerm}
+			<button
+				type="button"
+				onclick={clearSearch}
+				class="btn-icon absolute inset-y-0 end-1 my-auto size-8"
+				aria-label={m.recipes_reset()}
+			>
+				<X class="size-4" />
+			</button>
+		{/if}
+	</div>
+
 	{#if content.tags.length > 0}
-		<div class="mt-8 flex flex-wrap gap-1.5">
+		<div class="mt-4 flex flex-wrap gap-1.5">
 			{#each content.tags as tag (tag.slug)}
 				<a href={tagHref(tag.slug)} class="chip {activeTag === tag.slug ? 'chip-active' : ''}">
 					#{tag.name}

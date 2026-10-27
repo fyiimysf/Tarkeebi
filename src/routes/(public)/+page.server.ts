@@ -6,13 +6,14 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
 	const activeTag = url.searchParams.get('tag')?.trim() ?? '';
-	const content = loadPublicHome(activeTag);
+	const query = url.searchParams.get('q')?.trim().toLowerCase() ?? '';
+	const content = loadPublicHome(activeTag, query);
 	content.catch(() => {});
 
-	return { content, activeTag };
+	return { content, activeTag, query };
 };
 
-async function loadPublicHome(activeTag: string) {
+async function loadPublicHome(activeTag: string, query: string) {
 	const db = getDb(env.DB);
 
 	const rows = await db.query.recipe.findMany({
@@ -48,10 +49,21 @@ async function loadPublicHome(activeTag: string) {
 	}
 	const tags = [...tagCounts.values()].sort((a, b) => b.count - a.count);
 
-	const recipes = activeTag ? all.filter((row) => row.tags.some((item) => item.slug === activeTag)) : all;
-	const featured = activeTag ? null : (recipes[0] ?? null);
-	const rest = activeTag ? recipes : recipes.slice(1);
+	let recipes = activeTag ? all.filter((row) => row.tags.some((item) => item.slug === activeTag)) : all;
+
+	if (query) {
+		recipes = recipes.filter((row) => {
+			const haystack = [row.title, row.description ?? '']
+				.concat(row.tags.map((tag) => tag.name))
+				.join(' ')
+				.toLowerCase();
+			return haystack.includes(query);
+		});
+	}
+
+	const featured = activeTag || query ? null : (recipes[0] ?? null);
+	const rest = activeTag || query ? recipes : recipes.slice(1);
 	const activeTagName = activeTag ? (tagCounts.get(activeTag)?.name ?? null) : null;
 
-	return { recipes: rest, featured, tags, activeTag, activeTagName, total: all.length };
+	return { recipes: rest, featured, tags, activeTag, activeTagName, total: all.length, query };
 }

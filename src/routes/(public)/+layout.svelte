@@ -25,10 +25,10 @@
 				<Logo />
 			</a>
 			<div class="flex items-center gap-0.5">
+				<LanguageSwitcher />
 				<a href={resolve('/(app)/app')} class="btn-ghost" aria-label={m.public_recipe_box()} title={m.public_recipe_box()}>
 					<BookOpen class="size-4" />
 				</a>
-				<LanguageSwitcher />
 				<ThemeToggle />
 			</div>
 		</div>
