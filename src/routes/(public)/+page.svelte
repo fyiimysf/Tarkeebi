@@ -6,9 +6,27 @@
 	import { flyParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatMinutes } from '#lib/time.ts';
+	import PublicHomeSkeleton from '#lib/components/PublicHomeSkeleton.svelte';
+	import PageLoadError from '#lib/components/PageLoadError.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	let content = $state<any>(null);
+	let failed = $state(false);
+
+	$effect(() => {
+		content = null;
+		failed = false;
+		data.content
+			.then((value) => {
+				content = value;
+				failed = false;
+			})
+			.catch(() => {
+				failed = true;
+			});
+	});
 
 	function totalMinutes(prep: number | null, cook: number | null) {
 		return (prep ?? 0) + (cook ?? 0);
@@ -22,6 +40,8 @@
 	function tagHref(slug: string | null) {
 		return slug ? `${resolve('/(public)')}?tag=${encodeURIComponent(slug)}` : resolve('/(public)');
 	}
+
+	const activeTag = $derived(data.activeTag);
 </script>
 
 <svelte:head>
@@ -39,143 +59,151 @@
 	<p class="prose-editorial-lg mt-4">{m.public_subtitle()}</p>
 </section>
 
-{#if data.tags.length > 0}
-	<div class="mt-8 flex flex-wrap gap-1.5">
-		{#each data.tags as tag (tag.slug)}
-			<a href={tagHref(tag.slug)} class="chip {data.activeTag === tag.slug ? 'chip-active' : ''}">
-				#{tag.name}
-				<span class="text-fg-subtle">{tag.count}</span>
-			</a>
-		{/each}
-		{#if data.activeTag}
-			<a href={tagHref(null)} class="chip">{m.public_clear_tag()}</a>
-		{/if}
-	</div>
-{/if}
-
-{#if data.featured}
-	<a
-		href={resolve('/(public)/r/[slug]', { slug: data.featured.slug })}
-		in:fly={flyParams({ y: 8, duration: 200 })}
-		class="card group mt-8 flex flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5 md:flex-row"
-	>
-		<div
-			class="relative aspect-[16/10] w-full shrink-0 bg-surface-sunken md:aspect-auto md:min-h-80 md:w-1/2"
-		>
-			{#if data.featured.imageUrl}
-				<img
-					src={data.featured.imageUrl}
-					alt=""
-					class="absolute inset-0 size-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
-				/>
-			{:else}
-				<ChefHat class="absolute inset-0 m-auto size-12 text-fg-subtle" strokeWidth={1.5} />
+{#if failed}
+	<PageLoadError />
+{:else if !content}
+	<PublicHomeSkeleton />
+{:else}
+	{#if content.tags.length > 0}
+		<div class="mt-8 flex flex-wrap gap-1.5">
+			{#each content.tags as tag (tag.slug)}
+				<a href={tagHref(tag.slug)} class="chip {activeTag === tag.slug ? 'chip-active' : ''}">
+					#{tag.name}
+					<span class="text-fg-subtle">{tag.count}</span>
+				</a>
+			{/each}
+			{#if activeTag}
+				<a href={tagHref(null)} class="chip">{m.public_clear_tag()}</a>
 			{/if}
 		</div>
-		<div class="flex flex-1 flex-col justify-center gap-3 p-5 sm:p-8">
-			<span class="eyebrow">{m.public_featured()}</span>
-			<h2 class="font-display text-2xl font-bold leading-snug sm:text-3xl">
-				{data.featured.title}
-			</h2>
-			{#if data.featured.description}
-				<p class="line-clamp-3 leading-relaxed text-fg-muted">
-					{data.featured.description}
-				</p>
-			{/if}
-			<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-subtle">
-				<span class="inline-flex items-center gap-1">
-					<Users class="size-3.5" />
-					{servingsLabel(data.featured.servings)}
-				</span>
-				{#if totalMinutes(data.featured.prepMinutes, data.featured.cookMinutes) > 0}
-					<span class="inline-flex items-center gap-1">
-						<Clock class="size-3.5" />
-						{formatMinutes(totalMinutes(data.featured.prepMinutes, data.featured.cookMinutes))}
-					</span>
-				{/if}
-				{#if data.featured.publishedAt}
-					<time datetime={data.featured.publishedAt.toISOString()} class="ms-auto">
-						{formatDate(data.featured.publishedAt)}
-					</time>
+	{/if}
+
+	{#if content.featured}
+		<a
+			href={resolve('/(public)/r/[slug]', { slug: content.featured.slug })}
+			in:fly={flyParams({ y: 8, duration: 200 })}
+			class="card group mt-8 flex flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5 md:flex-row"
+		>
+			<div
+				class="relative aspect-[16/10] w-full shrink-0 bg-surface-sunken md:aspect-auto md:min-h-80 md:w-1/2"
+			>
+				{#if content.featured.imageUrl}
+					<img
+						src={content.featured.imageUrl}
+						alt=""
+						class="absolute inset-0 size-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
+					/>
+				{:else}
+					<ChefHat class="absolute inset-0 m-auto size-12 text-fg-subtle" strokeWidth={1.5} />
 				{/if}
 			</div>
-		</div>
-	</a>
-{/if}
+			<div class="flex flex-1 flex-col justify-center gap-3 p-5 sm:p-8">
+				<span class="eyebrow">{m.public_featured()}</span>
+				<h2 class="font-display text-2xl font-bold leading-snug sm:text-3xl">
+					{content.featured.title}
+				</h2>
+				{#if content.featured.description}
+					<p class="line-clamp-3 leading-relaxed text-fg-muted">
+						{content.featured.description}
+					</p>
+				{/if}
+				<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-subtle">
+					<span class="inline-flex items-center gap-1">
+						<Users class="size-3.5" />
+						{servingsLabel(content.featured.servings)}
+					</span>
+					{#if totalMinutes(content.featured.prepMinutes, content.featured.cookMinutes) > 0}
+						<span class="inline-flex items-center gap-1">
+							<Clock class="size-3.5" />
+							{formatMinutes(totalMinutes(content.featured.prepMinutes, content.featured.cookMinutes))}
+						</span>
+					{/if}
+					{#if content.featured.publishedAt}
+						<time datetime={content.featured.publishedAt.toISOString()} class="ms-auto">
+							{formatDate(content.featured.publishedAt)}
+						</time>
+					{/if}
+				</div>
+			</div>
+		</a>
+	{/if}
 
-{#if data.recipes.length > 0}
-	<h2 class="mt-12 font-display text-2xl font-bold">{m.public_all_recipes()}</h2>
-	<ul class="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-		{#each data.recipes as recipe, index (recipe.id)}
-			{@const minutes = totalMinutes(recipe.prepMinutes, recipe.cookMinutes)}
-			<li in:fly={flyParams({ y: 10, duration: 200, delay: Math.min(index * 25, 150) })}>
-				<a
-					href={resolve('/(public)/r/[slug]', { slug: recipe.slug })}
-					class="card group flex h-full flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5"
-				>
-					<div class="relative aspect-[4/3] w-full overflow-hidden bg-surface-sunken">
-						{#if recipe.imageUrl}
-							<img
-								src={recipe.imageUrl}
-								alt=""
-								loading="lazy"
-								class="size-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
-							/>
-						{:else}
-							<ChefHat class="absolute inset-0 m-auto size-10 text-fg-subtle" strokeWidth={1.5} />
-						{/if}
-					</div>
-					<div class="flex flex-1 flex-col gap-2 p-5">
-						<h3 class="font-display text-lg font-semibold leading-snug">{recipe.title}</h3>
-						{#if recipe.description}
-							<p class="line-clamp-3 text-sm leading-relaxed text-fg-muted">
-								{recipe.description}
-							</p>
-						{/if}
-						{#if recipe.tags.length > 0}
-							<div class="mt-1 flex flex-wrap gap-1">
-								{#each recipe.tags.slice(0, 2) as tag (tag.slug)}
-									<span
-										class="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-fg-muted"
-									>
-										#{tag.name}
-									</span>
-								{/each}
-							</div>
-						{/if}
-						<div
-							class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-xs text-fg-subtle"
-						>
-							<span class="inline-flex items-center gap-1">
-								<Users class="size-3.5" />
-								{servingsLabel(recipe.servings)}
-							</span>
-							{#if minutes > 0}
-								<span class="inline-flex items-center gap-1">
-									<Clock class="size-3.5" />
-									{formatMinutes(minutes)}
-								</span>
-							{/if}
-							{#if recipe.publishedAt}
-								<time datetime={recipe.publishedAt.toISOString()} class="ms-auto">
-									{formatDate(recipe.publishedAt)}
-								</time>
+	{#if content.recipes.length > 0}
+		<h2 class="mt-12 font-display text-2xl font-bold">{m.public_all_recipes()}</h2>
+		<ul class="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+			{#each content.recipes as recipe, index (recipe.id)}
+				{@const minutes = totalMinutes(recipe.prepMinutes, recipe.cookMinutes)}
+				<li in:fly={flyParams({ y: 10, duration: 200, delay: Math.min(index * 25, 150) })}>
+					<a
+						href={resolve('/(public)/r/[slug]', { slug: recipe.slug })}
+						class="card group flex h-full flex-col overflow-hidden transition-shadow duration-200 hover:shadow-lifted motion-safe:hover:-translate-y-0.5"
+					>
+						<div class="relative aspect-[4/3] w-full overflow-hidden bg-surface-sunken">
+							{#if recipe.imageUrl}
+								<img
+									src={recipe.imageUrl}
+									alt=""
+									loading="lazy"
+									class="size-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
+								/>
+							{:else}
+								<ChefHat class="absolute inset-0 m-auto size-10 text-fg-subtle" strokeWidth={1.5} />
 							{/if}
 						</div>
-					</div>
-				</a>
-			</li>
-		{/each}
-	</ul>
-{:else if data.activeTag}
-	<div class="card mt-10 p-10 text-center">
-		<p class="text-sm text-fg-subtle">{m.public_tag_filter({ tag: data.activeTagName ?? '' })}</p>
-		<a href={tagHref(null)} class="btn-secondary mt-4">{m.public_clear_tag()}</a>
-	</div>
-{:else if data.total === 0}
-	<div class="card mt-10 p-10 text-center">
-		<ChefHat class="mx-auto size-10 text-fg-subtle" strokeWidth={1.5} />
-		<h2 class="mt-4 font-display text-lg font-semibold">{m.public_empty_title()}</h2>
-		<p class="mt-1 text-sm text-fg-subtle">{m.public_empty_body()}</p>
-	</div>
+						<div class="flex flex-1 flex-col gap-2 p-5">
+							<h3 class="font-display text-lg font-semibold leading-snug">{recipe.title}</h3>
+							{#if recipe.description}
+								<p class="line-clamp-3 text-sm leading-relaxed text-fg-muted">
+									{recipe.description}
+								</p>
+							{/if}
+							{#if recipe.tags.length > 0}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each recipe.tags.slice(0, 2) as tag (tag.slug)}
+										<span
+											class="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-fg-muted"
+										>
+											#{tag.name}
+										</span>
+									{/each}
+								</div>
+							{/if}
+							<div
+								class="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-3 text-xs text-fg-subtle"
+							>
+								<span class="inline-flex items-center gap-1">
+									<Users class="size-3.5" />
+									{servingsLabel(recipe.servings)}
+								</span>
+								{#if minutes > 0}
+									<span class="inline-flex items-center gap-1">
+										<Clock class="size-3.5" />
+										{formatMinutes(minutes)}
+									</span>
+								{/if}
+								{#if recipe.publishedAt}
+									<time datetime={recipe.publishedAt.toISOString()} class="ms-auto">
+										{formatDate(recipe.publishedAt)}
+									</time>
+								{/if}
+							</div>
+						</div>
+					</a>
+				</li>
+			{/each}
+		</ul>
+	{:else if activeTag}
+		<div class="card mt-10 p-10 text-center">
+			<p class="text-sm text-fg-subtle">
+				{m.public_tag_filter({ tag: content.activeTagName ?? '' })}
+			</p>
+			<a href={tagHref(null)} class="btn-secondary mt-4">{m.public_clear_tag()}</a>
+		</div>
+	{:else if content.total === 0}
+		<div class="card mt-10 p-10 text-center">
+			<ChefHat class="mx-auto size-10 text-fg-subtle" strokeWidth={1.5} />
+			<h2 class="mt-4 font-display text-lg font-semibold">{m.public_empty_title()}</h2>
+			<p class="mt-1 text-sm text-fg-subtle">{m.public_empty_body()}</p>
+		</div>
+	{/if}
 {/if}

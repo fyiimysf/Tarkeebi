@@ -4,9 +4,16 @@ import { getDb } from '#lib/server/db/index.ts';
 import { recipe } from '#lib/server/db/schema.ts';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
-	const db = getDb(env.DB);
+export const load: PageServerLoad = ({ url }) => {
 	const activeTag = url.searchParams.get('tag')?.trim() ?? '';
+	const content = loadPublicHome(activeTag);
+	content.catch(() => {});
+
+	return { content, activeTag };
+};
+
+async function loadPublicHome(activeTag: string) {
+	const db = getDb(env.DB);
 
 	const rows = await db.query.recipe.findMany({
 		where: eq(recipe.isPublic, true),
@@ -47,4 +54,4 @@ export const load: PageServerLoad = async ({ url }) => {
 	const activeTagName = activeTag ? (tagCounts.get(activeTag)?.name ?? null) : null;
 
 	return { recipes: rest, featured, tags, activeTag, activeTagName, total: all.length };
-};
+}
