@@ -2,6 +2,8 @@ import { env } from 'cloudflare:workers';
 import { error } from '@sveltejs/kit';
 import { getCookStats, recordCook, visitorIdentity } from '#lib/server/cooked.ts';
 import { getDb } from '#lib/server/db/index.ts';
+import { resolveRecipeContent } from '#lib/server/recipe-i18n.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, getClientAddress }) => {
@@ -13,6 +15,7 @@ export const load: PageServerLoad = ({ params, getClientAddress }) => {
 
 async function loadPublicRecipe(slug: string, clientAddress: string) {
 	const db = getDb(env.DB);
+	const locale = getLocale();
 
 	const found = await db.query.recipe.findFirst({
 		// Any recipe with a slug is reachable by its link, public or private.
@@ -30,35 +33,40 @@ async function loadPublicRecipe(slug: string, clientAddress: string) {
 
 	const identity = await visitorIdentity(() => clientAddress);
 	const cookStats = await getCookStats(found.id, identity);
+	const resolved = await resolveRecipeContent(db, found as any, locale);
 
 	return {
 		recipe: {
-			id: found.id,
-			slug: found.slug ?? slug,
-			title: found.title,
-			description: found.description,
-			notes: found.notes,
-			imageUrl: found.imageUrl,
-			servings: found.servings,
-			prepMinutes: found.prepMinutes,
-			cookMinutes: found.cookMinutes,
-			publishedAt: found.publishedAt,
-			sourceUrl: found.sourceUrl,
-			isPublic: found.isPublic,
+			id: resolved.id,
+			slug: resolved.slug ?? slug,
+			locale: resolved.locale,
+			resolvedLocale: resolved.resolvedLocale,
+			originalLocale: resolved.originalLocale,
+			isTranslated: resolved.isTranslated,
+			title: resolved.title,
+			description: resolved.description,
+			notes: resolved.notes,
+			imageUrl: resolved.imageUrl,
+			servings: resolved.servings,
+			prepMinutes: resolved.prepMinutes,
+			cookMinutes: resolved.cookMinutes,
+			publishedAt: resolved.publishedAt,
+			sourceUrl: resolved.sourceUrl,
+			isPublic: resolved.isPublic,
 			cookCount: cookStats.count,
 			authorName: found.user?.name ?? null,
 			tags: found.recipeTags.map((link) => link.tag),
-			ingredients: found.ingredients.map(({ id, quantity, unit, name, note }) => ({
-				id,
-				quantity,
-				unit,
-				name,
-				note
+			ingredients: resolved.ingredients.map((ing: any) => ({
+				id: ing.id,
+				quantity: ing.quantity,
+				unit: ing.unit,
+				name: ing.name,
+				note: ing.note
 			})),
-			steps: found.steps.map(({ id, position, instruction }) => ({
-				id,
-				position,
-				instruction
+			steps: resolved.steps.map((st: any) => ({
+				id: st.id,
+				position: st.position,
+				instruction: st.instruction
 			}))
 		}
 	};

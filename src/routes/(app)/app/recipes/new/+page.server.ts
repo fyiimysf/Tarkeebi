@@ -13,6 +13,7 @@ import {
 	replaceRecipeTags
 } from '#lib/server/recipe-form.ts';
 import { deleteRecipeImage, ImageUploadError, uploadRecipeImage } from '#lib/server/storage.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => ({});
@@ -31,6 +32,7 @@ export const actions: Actions = {
 		const userId = locals.user!.id;
 		const ingredients = parseIngredients(form);
 		const steps = parseSteps(form);
+		const locale = getLocale();
 
 		const image = form.get('image');
 		let uploaded: { key: string; url: string } | null = null;
@@ -57,6 +59,7 @@ export const actions: Actions = {
 			await db.insert(recipe).values({
 				id,
 				userId,
+				locale,
 				title: fields.title,
 				description: fields.description,
 				notes: fields.notes,

@@ -23,7 +23,8 @@
 		{#snippet child({ props })}
 			<button {...props} type="button" class="btn-ghost" aria-label={names[current] ?? current} title={names[current] ?? current}>
 				<Languages class="size-4" />
-				<span class="text-xs uppercase">{current}</span>
+				<span class="hidden sm:inline">{names[current] ?? current}</span>
+				<span class="sm:hidden text-xs uppercase">{current}</span>
 			</button>
 		{/snippet}
 	</DropdownMenu.Trigger>

@@ -126,14 +126,22 @@ export async function replaceRecipeIngredients(
 ) {
 	await db.delete(ingredient).where(eq(ingredient.recipeId, recipeId));
 	if (ingredients.length > 0) {
-		await db.insert(ingredient).values(ingredients.map((item) => ({ recipeId, ...item })));
+		const batchSize = 10;
+		for (let i = 0; i < ingredients.length; i += batchSize) {
+			const batch = ingredients.slice(i, i + batchSize).map((item) => ({ recipeId, ...item }));
+			await db.insert(ingredient).values(batch);
+		}
 	}
 }
 
 export async function replaceRecipeSteps(db: Db, recipeId: string, steps: ParsedStep[]) {
 	await db.delete(step).where(eq(step.recipeId, recipeId));
 	if (steps.length > 0) {
-		await db.insert(step).values(steps.map((item) => ({ recipeId, ...item })));
+		const batchSize = 10;
+		for (let i = 0; i < steps.length; i += batchSize) {
+			const batch = steps.slice(i, i + batchSize).map((item) => ({ recipeId, ...item }));
+			await db.insert(step).values(batch);
+		}
 	}
 }
 

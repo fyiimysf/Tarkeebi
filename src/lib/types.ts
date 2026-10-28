@@ -94,6 +94,18 @@ export type RecipeFormInitial = {
 	imageUrl?: string | null;
 	isPublic?: boolean;
 	tags?: string[];
-	ingredients?: { quantity: string; unit: string; name: string; note?: string }[];
-	steps?: { instruction: string }[];
+	ingredients?: { id?: string; quantity: string; unit: string; name: string; note?: string }[];
+	steps?: { id?: string; instruction: string }[];
+};
+
+export type RecipeTranslationDraft = {
+	locale: string;
+	title: string;
+	description: string;
+	notes: string;
+};
+
+export type RecipeEntityTranslationDraft = {
+	ingredients?: Array<{ id: string; name: string; note: string; translation: { locale: string; name: string; note: string } | null }>;
+	steps?: Array<{ id: string; instruction: string; translation: { locale: string; instruction: string } | null }>;
 };

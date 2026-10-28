@@ -29,6 +29,13 @@
       "when": 1792930470762,
       "tag": "0003_cook_log",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793174392495,
+      "tag": "0004_tiny_pestilence",
+      "breakpoints": true
     }
   ]
 }

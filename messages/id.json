@@ -186,6 +186,10 @@
 	"pdf_import_too_large": "PDF itu lebih dari 20 MB.",
 	"pdf_import_password": "PDF itu dilindungi kata sandi. Hapus kata sandinya lalu coba lagi.",
 	"recipes_count_one": "1 resep",
+	"translate_to": "Terjemahkan ke...",
+	"language_english": "Bahasa Inggris",
+	"language_indonesian": "Bahasa Indonesia",
+	"language_urdu": "Bahasa Urdu",
 	"recipe_servings_one": "1 porsi",
 	"recipe_cooked_once": "Dimasak sekali"
 }

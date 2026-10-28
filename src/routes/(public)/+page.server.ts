@@ -2,6 +2,8 @@ import { env } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
 import { getDb } from '#lib/server/db/index.ts';
 import { recipe } from '#lib/server/db/schema.ts';
+import { resolveRecipeContent } from '#lib/server/recipe-i18n.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -15,16 +17,20 @@ export const load: PageServerLoad = ({ url }) => {
 
 async function loadPublicHome(activeTag: string, query: string) {
 	const db = getDb(env.DB);
+	const locale = getLocale();
 
 	const rows = await db.query.recipe.findMany({
 		where: eq(recipe.isPublic, true),
 		with: {
+			ingredients: { orderBy: (ingredient, { asc }) => [asc(ingredient.position)] },
+			steps: { orderBy: (step, { asc }) => [asc(step.position)] },
 			recipeTags: { with: { tag: { columns: { name: true, slug: true } } } }
 		}
 	});
 
-	const all = rows
-		.filter((row) => row.slug)
+	const resolved = await Promise.all(rows.filter((row) => row.slug).map((row) => resolveRecipeContent(db, row as any, locale)));
+
+	const all = resolved
 		.map((row) => ({
 			id: row.id,
 			slug: row.slug as string,
@@ -35,7 +41,7 @@ async function loadPublicHome(activeTag: string, query: string) {
 			prepMinutes: row.prepMinutes,
 			cookMinutes: row.cookMinutes,
 			publishedAt: row.publishedAt,
-			tags: row.recipeTags.map((link) => link.tag)
+			tags: rows.find((r) => r.id === row.id)?.recipeTags.map((link) => link.tag) ?? []
 		}))
 		.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
 

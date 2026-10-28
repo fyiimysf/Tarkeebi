@@ -6,18 +6,24 @@
 		ArrowUp,
 		CirclePlus,
 		ClipboardPaste,
+		Download,
+		FileUp,
 		Globe,
 		GlobeLock,
 		ImagePlus,
+		Languages,
 		LoaderCircle,
+		Check,
 		X
 	} from '@lucide/svelte';
+	import { DropdownMenu } from 'bits-ui';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { flipParams, slideParams } from '#lib/motion.ts';
 	import { m } from '#lib/paraglide/messages.js';
 	import { parseBulkIngredients, parseBulkSteps } from '#lib/recipe-bulk.ts';
 	import type { RecipeFormInitial } from '#lib/types.ts';
+	import { buildTranslationExport, buildTranslationPrompt, parseAndValidateTranslationImport } from '#lib/recipe-translation-json.ts';
 
 	type Submit = NonNullable<Parameters<typeof enhance>[1]>;
 
@@ -29,13 +35,36 @@
 		initial = {},
 		submitLabel,
 		cancelHref,
-		imageRequired = false
+		imageRequired = false,
+		translations = [],
+		translationEntities = { ingredients: [], steps: [] },
+		availableLocales = ['en', 'id', 'ur'],
+		originalLocale = 'en'
 	}: {
 		form?: { message?: string; title?: string } | null;
 		initial?: RecipeFormInitial;
 		submitLabel?: string;
 		cancelHref: string;
 		imageRequired?: boolean;
+		translations?: Array<{ locale: string; title: string; description: string; notes: string }>;
+		translationEntities?: {
+			ingredients: Array<{
+				id: string;
+				name: string;
+				note: string;
+				translationName?: string;
+				translationNote?: string;
+				translation: { locale: string; name: string; note: string } | null;
+			}>;
+			steps: Array<{
+				id: string;
+				instruction: string;
+				translationInstruction?: string;
+				translation: { locale: string; instruction: string } | null;
+			}>;
+		};
+		availableLocales?: string[];
+		originalLocale?: string;
 	} = $props();
 
 	function emptyIngredient(): IngredientRow {
@@ -52,7 +81,7 @@
 		untrack(() =>
 			initial.ingredients?.length
 				? initial.ingredients.map((item) => ({
-						id: crypto.randomUUID(),
+						id: (item as any).id || crypto.randomUUID(),
 						quantity: item.quantity,
 						unit: item.unit,
 						name: item.name,
@@ -65,7 +94,7 @@
 		untrack(() =>
 			initial.steps?.length
 				? initial.steps.map((item) => ({
-						id: crypto.randomUUID(),
+						id: (item as any).id || crypto.randomUUID(),
 						instruction: item.instruction
 					}))
 				: [emptyStep()]
@@ -81,6 +110,225 @@
 	let stepsBulkOpen = $state(false);
 	let bulkIngredients = $state('');
 	let bulkSteps = $state('');
+	let translationsOpen = $state(false);
+	let translationDrafts = $state<Record<string, { title: string; description: string; notes: string }>>({});
+
+	let importOpen = $state(false);
+	let importTargetLocale = $state('');
+	let importFile: File | null = $state(null);
+	let importPastedJson = $state('');
+	let importAiText = $state('');
+	let importError = $state<string | null>(null);
+	let importApplied = $state<Record<string, boolean>>({});
+	let activeTranslationLocale = $state<string | null>(null);
+
+	$effect.pre(() => {
+		const map: Record<string, { title: string; description: string; notes: string }> = {};
+		for (const t of translations) {
+			map[t.locale] = { title: t.title || '', description: t.description || '', notes: t.notes || '' };
+		}
+		for (const loc of availableLocales) {
+			if (!map[loc]) map[loc] = { title: '', description: '', notes: '' };
+		}
+		translationDrafts = map;
+	});
+
+	function downloadTranslationTemplate() {
+		const exportData = buildTranslationExport({
+			recipeId: initial.title ? 'recipe' : 'recipe',
+			originalLocale,
+			title: initial.title ?? '',
+			description: initial.description ?? null,
+			notes: initial.notes ?? null,
+			ingredients: ingredients.map((row) => ({
+				id: row.id,
+				quantity: row.quantity,
+				unit: row.unit,
+				name: row.name,
+				note: row.note
+			})),
+			steps: steps.map((row) => ({
+				id: row.id,
+				instruction: row.instruction
+			})),
+			targetLocale: importTargetLocale || undefined
+		});
+
+		const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `recipe-translation-template-${originalLocale}.json`;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	}
+
+	async function getTranslationPromptText() {
+		const target = importTargetLocale || 'target-language';
+		return buildTranslationPrompt(target);
+	}
+
+	async function copyTranslationPrompt() {
+		const target = importTargetLocale || 'target-language';
+		const prompt = buildTranslationPrompt(target);
+		try {
+			await navigator.clipboard.writeText(prompt);
+		} catch {
+			// ignore
+		}
+	}
+
+	async function copyAiRequest() {
+		const target = importTargetLocale || 'target-language';
+		const exportData = buildTranslationExport({
+			recipeId: 'recipe',
+			originalLocale,
+			title: initial.title ?? '',
+			description: initial.description ?? null,
+			notes: initial.notes ?? null,
+			ingredients: ingredients.map((row) => ({
+				id: row.id,
+				quantity: row.quantity,
+				unit: row.unit,
+				name: row.name,
+				note: row.note
+			})),
+			steps: steps.map((row) => ({
+				id: row.id,
+				instruction: row.instruction
+			})),
+			targetLocale: target
+		});
+		const prompt = buildTranslationPrompt(target);
+		const text = `${prompt}\n\nJSON:\n${JSON.stringify(exportData, null, 2)}`;
+		try {
+			await navigator.clipboard.writeText(text);
+			importAiText = text;
+		} catch {
+			importAiText = text;
+		}
+	}
+
+	async function applyImportedTranslation() {
+		importError = null;
+		let raw: unknown = null;
+
+		try {
+			if (importPastedJson.trim()) {
+				raw = JSON.parse(importPastedJson);
+			} else if (importAiText.trim()) {
+				// Try to extract JSON from pasted AI response
+				const match = importAiText.match(/\{[\s\S]*\}/);
+				if (match) {
+					raw = JSON.parse(match[0]);
+				} else {
+					raw = JSON.parse(importAiText);
+				}
+			} else if (importFile) {
+				const text = await importFile.text();
+				const match = text.match(/\{[\s\S]*\}/);
+				raw = match ? JSON.parse(match[0]) : JSON.parse(text);
+			} else {
+				importError = 'Paste the JSON or AI response, or upload a file.';
+				return;
+			}
+		} catch {
+			importError = 'Invalid JSON.';
+			return;
+		}
+
+		if (!importTargetLocale || importTargetLocale === originalLocale) {
+			importError = 'Select a target language different from the original.';
+			return;
+		}
+
+		const result = parseAndValidateTranslationImport(raw, {
+			expectedCount: {
+				ingredients: ingredients.length,
+				steps: steps.length
+			}
+		});
+
+		if (!result.ok) {
+			importError = result.message;
+			return;
+		}
+
+		if (
+			translationDrafts[importTargetLocale]?.title ||
+			translationDrafts[importTargetLocale]?.description ||
+			translationDrafts[importTargetLocale]?.notes
+		) {
+			const confirmed = confirm(
+				`This will overwrite existing translations for ${importTargetLocale}. Continue?`
+			);
+			if (!confirmed) return;
+		}
+
+		translationDrafts[importTargetLocale] = {
+			title: result.mapped.recipe.title,
+			description: result.mapped.recipe.description,
+			notes: result.mapped.recipe.notes
+		};
+
+		for (let i = 0; i < ingredients.length; i++) {
+			const match =
+				result.mapped.ingredients.find((ing) => ing.index === i) ||
+				result.mapped.ingredients.find((ing) => ing.id && ing.id === ingredients[i].id) ||
+				result.mapped.ingredients[i];
+
+			if (match) {
+				const nameInput = document.querySelector<HTMLInputElement>(
+					`input[name="ing_${i}_${importTargetLocale}_name"]`
+				);
+				const noteInput = document.querySelector<HTMLInputElement>(
+					`input[name="ing_${i}_${importTargetLocale}_note"]`
+				);
+				if (nameInput) {
+					nameInput.value = match.name ?? '';
+					nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+				}
+				if (noteInput) {
+					noteInput.value = match.note ?? '';
+					noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+				}
+				if ((translationEntities.ingredients as any)[i]) {
+					(translationEntities.ingredients as any)[i].translationName = match.name ?? '';
+					(translationEntities.ingredients as any)[i].translationNote = match.note ?? '';
+				}
+			}
+		}
+
+		for (let i = 0; i < steps.length; i++) {
+			const match =
+				result.mapped.steps.find((st) => st.index === i) ||
+				result.mapped.steps.find((st) => st.id && st.id === steps[i].id) ||
+				result.mapped.steps[i];
+
+			if (match) {
+				const stepInput = document.querySelector<HTMLTextAreaElement>(
+					`textarea[name="step_${i}_${importTargetLocale}_instruction"]`
+				);
+				if (stepInput) {
+					stepInput.value = match.instruction ?? '';
+					stepInput.dispatchEvent(new Event('input', { bubbles: true }));
+				}
+				if ((translationEntities.steps as any)[i]) {
+					(translationEntities.steps as any)[i].translationInstruction = match.instruction ?? '';
+				}
+			}
+		}
+
+		importApplied[importTargetLocale] = true;
+		activeTranslationLocale = importTargetLocale;
+		importOpen = false;
+		importFile = null;
+		importPastedJson = '';
+		importAiText = '';
+		translationsOpen = true;
+	}
 
 	/** The row that was just added, highlighted once so the eye can find it. */
 	let freshRow = $state<string | null>(null);
@@ -315,31 +563,193 @@
 	aria-busy={submitting}
 >
 	<section class="card space-y-4 p-4 sm:space-y-5 sm:p-6">
-		<div class="space-y-1.5">
-			<label class="label" for="title">{m.recipe_field_title()}</label>
-			<input
-				id="title"
-				name="title"
-				required
-				autocomplete="off"
-				autocapitalize="words"
-				enterkeyhint="next"
-				class="input"
-				value={form?.title ?? initial.title ?? ''}
-				placeholder="Grandma's chicken tagine"
-			/>
+		<div class="flex flex-wrap items-center justify-between gap-2">
+			<div class="space-y-1">
+				<p class="eyebrow">Content</p>
+				{#if activeTranslationLocale}
+					<p class="text-sm text-fg-subtle flex flex-wrap items-center gap-1">
+						<span>Translating to: {activeTranslationLocale}</span>
+					</p>
+				{/if}
+			</div>
+			<div class="flex flex-wrap items-center gap-1">
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<button {...props} type="button" class="btn-ghost">
+								<Languages class="size-4" />
+								<span>{importTargetLocale ? (importTargetLocale === 'en' ? m.language_english() : importTargetLocale === 'id' ? m.language_indonesian() : importTargetLocale === 'ur' ? m.language_urdu() : importTargetLocale) : (m.translate_to?.() ?? 'Translate to...')}</span>
+							</button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Portal>
+						<DropdownMenu.Content
+							sideOffset={6}
+							class="z-50 min-w-48 rounded-lg border border-border bg-surface p-1 shadow-lifted"
+						>
+							{#each availableLocales as loc}
+								{#if loc !== originalLocale || true}
+									<DropdownMenu.Item
+										onSelect={() => {
+											if (loc === originalLocale) return;
+											importTargetLocale = loc;
+											importOpen = true;
+											importError = null;
+											importFile = null;
+											importPastedJson = '';
+											importAiText = '';
+										}}
+										class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-surface-sunken"
+									>
+										<span dir={loc === 'ur' ? 'rtl' : 'ltr'}>{loc === 'en' ? (m.language_english?.() ?? 'English') : loc === 'id' ? (m.language_indonesian?.() ?? 'Bahasa Indonesia') : loc === 'ur' ? (m.language_urdu?.() ?? 'اردو') : loc}</span>
+										<Check class="ms-auto size-4 text-accent {importTargetLocale !== loc ? 'opacity-0' : ''}" />
+									</DropdownMenu.Item>
+								{/if}
+							{/each}
+						</DropdownMenu.Content>
+					</DropdownMenu.Portal>
+				</DropdownMenu.Root>
+				{#if activeTranslationLocale}
+					<button
+						type="button"
+						class="btn-ghost"
+						onclick={() => {
+							activeTranslationLocale = null;
+						}}
+					>
+						Show original
+					</button>
+				{/if}
+			</div>
 		</div>
 
-		<div class="space-y-1.5">
-			<label class="label" for="description">{m.recipe_field_description()}</label>
-			<textarea
-				id="description"
-				name="description"
-				rows="2"
-				class="input resize-none overflow-hidden"
-				value={initial.description ?? ''}
-				{@attach autosize}></textarea>
-		</div>
+		{#if importOpen}
+			<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+				<div class="card w-full max-w-4xl space-y-4 p-4 sm:p-6">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="eyebrow">Translate recipe</p>
+							<h3 class="mt-1 font-display text-lg font-bold">Copy to AI → Paste answer</h3>
+							<p class="mt-1 text-sm text-fg-subtle">Target: {importTargetLocale || '...'}</p>
+						</div>
+						<button type="button" class="btn-icon" onclick={() => { importOpen = false; importTargetLocale = ''; }}>
+							<X class="size-4" />
+						</button>
+					</div>
+					<div class="grid gap-4 md:grid-cols-2">
+						<div class="space-y-2">
+							<div class="flex items-center justify-between">
+								<label class="label" for="import-ai-request">Request (prompt + JSON)</label>
+								<button type="button" class="btn-ghost" onclick={copyAiRequest} disabled={!importTargetLocale}>
+									Copy
+								</button>
+							</div>
+							<textarea
+								id="import-ai-request"
+								rows="12"
+								class="input resize-y font-mono text-xs"
+								readonly
+								value={importTargetLocale ? `${buildTranslationPrompt(importTargetLocale)}\n\nJSON:\n${JSON.stringify(buildTranslationExport({
+									recipeId: 'recipe',
+									originalLocale,
+									title: initial.title ?? '',
+									description: initial.description ?? null,
+									notes: initial.notes ?? null,
+									ingredients: ingredients.map((row) => ({
+										id: row.id,
+										quantity: row.quantity,
+										unit: row.unit,
+										name: row.name,
+										note: row.note
+									})),
+									steps: steps.map((row) => ({
+										id: row.id,
+										instruction: row.instruction
+									})),
+									targetLocale: importTargetLocale
+								}), null, 2)}` : 'Select a target language first.'}
+							></textarea>
+						</div>
+						<div class="space-y-2">
+							<label class="label" for="import-ai-answer">Paste AI answer here</label>
+							<textarea
+								id="import-ai-answer"
+								rows="12"
+								class="input resize-y font-mono text-xs"
+								bind:value={importAiText}
+								placeholder="Paste the translated JSON returned by your AI..."
+							></textarea>
+						</div>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<button type="button" class="btn-ghost" onclick={downloadTranslationTemplate}>
+							<Download class="size-4" />
+							Download JSON template
+						</button>
+					</div>
+					{#if importError}
+						<p class="text-sm text-danger">{importError}</p>
+					{/if}
+					<div class="flex items-center justify-end gap-2">
+						<button type="button" class="btn-secondary" onclick={() => { importOpen = false; importTargetLocale = ''; }}>Cancel</button>
+						<button type="button" class="btn-primary" onclick={applyImportedTranslation} disabled={!importTargetLocale}>Parse & apply to form</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<input type="hidden" name="title" value={initial.title ?? ''} />
+		<textarea name="description" class="hidden">{initial.description ?? ''}</textarea>
+		<textarea name="notes" class="hidden">{initial.notes ?? ''}</textarea>
+
+		{#if !activeTranslationLocale}
+			<div class="space-y-1.5">
+				<label class="label" for="title">{m.recipe_field_title()}</label>
+				<input
+					id="title"
+					name="title"
+					required
+					autocomplete="off"
+					autocapitalize="words"
+					enterkeyhint="next"
+					class="input"
+					value={form?.title ?? initial.title ?? ''}
+					placeholder="Grandma's chicken tagine"
+				/>
+			</div>
+
+			<div class="space-y-1.5">
+				<label class="label" for="description">{m.recipe_field_description()}</label>
+				<textarea
+					id="description"
+					name="description"
+					rows="2"
+					class="input resize-none overflow-hidden"
+					value={initial.description ?? ''}
+					{@attach autosize}></textarea>
+			</div>
+		{:else}
+			<div class="space-y-1.5">
+				<label class="label" for={`trans_title_${activeTranslationLocale}`}>Title ({activeTranslationLocale})</label>
+				<input
+					id={`trans_title_${activeTranslationLocale}`}
+					class="input"
+					bind:value={translationDrafts[activeTranslationLocale].title}
+				/>
+				<input type="hidden" name={`trans_${activeTranslationLocale}_title`} value={translationDrafts[activeTranslationLocale]?.title ?? ''} />
+			</div>
+
+			<div class="space-y-1.5">
+				<label class="label" for={`trans_desc_${activeTranslationLocale}`}>Description ({activeTranslationLocale})</label>
+				<textarea
+					id={`trans_desc_${activeTranslationLocale}`}
+					rows="2"
+					class="input resize-none overflow-hidden"
+					bind:value={translationDrafts[activeTranslationLocale].description}
+					{@attach autosize}></textarea>
+				<input type="hidden" name={`trans_${activeTranslationLocale}_description`} value={translationDrafts[activeTranslationLocale]?.description ?? ''} />
+			</div>
+		{/if}
 
 		<div class="space-y-1.5">
 			<span class="label" id="visibility-label">{m.recipe_field_visibility()}</span>
@@ -496,17 +906,31 @@
 			</div>
 		</div>
 
-		<div class="space-y-1.5">
-			<label class="label" for="notes">{m.recipe_field_notes()}</label>
-			<textarea
-				id="notes"
-				name="notes"
-				rows="3"
-				class="input resize-none overflow-hidden"
-				value={initial.notes ?? ''}
-				{@attach autosize}></textarea>
-			<p class="text-xs text-fg-subtle">{m.recipe_field_notes_hint()}</p>
-		</div>
+		{#if !activeTranslationLocale}
+			<div class="space-y-1.5">
+				<label class="label" for="notes">{m.recipe_field_notes()}</label>
+				<textarea
+					id="notes"
+					name="notes"
+					rows="3"
+					class="input resize-none overflow-hidden"
+					value={initial.notes ?? ''}
+					{@attach autosize}></textarea>
+				<p class="text-xs text-fg-subtle">{m.recipe_field_notes_hint()}</p>
+			</div>
+		{:else}
+			<div class="space-y-1.5">
+				<label class="label" for={`trans_notes_${activeTranslationLocale}`}>Notes ({activeTranslationLocale})</label>
+				<textarea
+					id={`trans_notes_${activeTranslationLocale}`}
+					rows="3"
+					class="input resize-none overflow-hidden"
+					bind:value={translationDrafts[activeTranslationLocale].notes}
+					{@attach autosize}></textarea>
+				<input type="hidden" name={`trans_${activeTranslationLocale}_notes`} value={translationDrafts[activeTranslationLocale]?.notes ?? ''} />
+				<p class="text-xs text-fg-subtle">{m.recipe_field_notes_hint()}</p>
+			</div>
+		{/if}
 	</section>
 
 	<section class="card p-4 sm:p-6">
@@ -563,6 +987,39 @@
 			</div>
 		{/if}
 
+		{#if activeTranslationLocale}
+			<div class="mt-3 space-y-2 rounded-control border border-border p-3">
+				<p class="text-xs font-semibold text-fg-subtle">Ingredient translations ({activeTranslationLocale})</p>
+				{#each ingredients as row, index (row.id)}
+					<div class="space-y-1 rounded-control border border-border p-2">
+						<p class="text-xs text-fg-subtle">{row.name || m.recipe_ingredient_name()}</p>
+						<input
+							name={`ing_${index}_${activeTranslationLocale}_name`}
+							class="input"
+							placeholder={m.recipe_ingredient_name()}
+							value={translationEntities.ingredients[index]?.translationName ?? (translationEntities.ingredients[index]?.translation?.locale === activeTranslationLocale ? translationEntities.ingredients[index].translation.name : '')}
+							oninput={(e) => {
+								if (translationEntities.ingredients[index]) {
+									translationEntities.ingredients[index].translationName = (e.currentTarget as HTMLInputElement).value;
+								}
+							}}
+						/>
+						<input
+							name={`ing_${index}_${activeTranslationLocale}_note`}
+							class="input"
+							placeholder={m.recipe_ingredient_note()}
+							value={translationEntities.ingredients[index]?.translationNote ?? (translationEntities.ingredients[index]?.translation?.locale === activeTranslationLocale ? translationEntities.ingredients[index].translation.note : '')}
+							oninput={(e) => {
+								if (translationEntities.ingredients[index]) {
+									translationEntities.ingredients[index].translationNote = (e.currentTarget as HTMLInputElement).value;
+								}
+							}}
+						/>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		<div class="mt-4 space-y-3">
 			{#each ingredients as row, index (row.id)}
 				<div
@@ -574,6 +1031,7 @@
 					aria-label={`${m.recipe_ingredient_name()} ${index + 1}`}
 					animate:flip={flipParams(160)}
 				>
+					<input type="hidden" name="ingredientId" value={row.id} />
 					<div class="flex items-center justify-between gap-2">
 						<span class="inline-flex items-center gap-2 text-xs font-semibold text-fg-subtle">
 							<span
@@ -727,6 +1185,28 @@
 			</div>
 		{/if}
 
+		{#if activeTranslationLocale}
+			<div class="mt-3 space-y-2 rounded-control border border-border p-3">
+				<p class="text-xs font-semibold text-fg-subtle">Step translations ({activeTranslationLocale})</p>
+				{#each steps as step, stepIdx}
+					<div class="space-y-1 rounded-control border border-border p-2">
+						<p class="text-xs text-fg-subtle">Step {stepIdx + 1}</p>
+						<textarea
+							name={`step_${stepIdx}_${activeTranslationLocale}_instruction`}
+							rows="2"
+							class="input resize-none"
+							value={translationEntities.steps[stepIdx]?.translationInstruction ?? (translationEntities.steps[stepIdx]?.translation?.locale === activeTranslationLocale ? translationEntities.steps[stepIdx].translation.instruction : '')}
+							oninput={(e) => {
+								if (translationEntities.steps[stepIdx]) {
+									translationEntities.steps[stepIdx].translationInstruction = (e.currentTarget as HTMLTextAreaElement).value;
+								}
+							}}
+							{@attach autosize}></textarea>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		<div class="mt-4 space-y-3">
 			{#each steps as step, index (step.id)}
 				<div
@@ -738,6 +1218,7 @@
 					aria-label={`${m.recipe_step()} ${index + 1}`}
 					animate:flip={flipParams(160)}
 				>
+					<input type="hidden" name="stepId" value={step.id} />
 					<div class="flex items-center justify-between gap-2">
 						<span class="inline-flex items-center gap-2 text-xs font-semibold text-fg-subtle">
 							<span
@@ -779,6 +1260,7 @@
 							</button>
 						</div>
 					</div>
+					<input type="hidden" name="stepId" value={step.id} />
 					<textarea
 						name="stepInstruction"
 						bind:value={step.instruction}

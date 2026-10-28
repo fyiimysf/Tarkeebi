@@ -38,6 +38,10 @@
 				ingredients: recipe.ingredients,
 				steps: recipe.steps
 			}}
+			translations={(data as any).translations ?? []}
+			translationEntities={(data as any).translationEntities ?? { ingredients: [], steps: [] }}
+			availableLocales={(data as any).availableLocales ?? ['en', 'id', 'ur']}
+			originalLocale={(data as any).recipe?.locale ?? 'en'}
 			submitLabel={m.recipe_save_changes()}
 			cancelHref={resolve('/(app)/app/recipes/[id]', { id: recipe.id })}
 		/>

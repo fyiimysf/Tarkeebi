@@ -2,6 +2,8 @@ import { env } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
 import { getDb } from '#lib/server/db/index.ts';
 import { recipe, tag } from '#lib/server/db/schema.ts';
+import { resolveRecipeContent } from '#lib/server/recipe-i18n.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { DashboardContentData } from '#lib/types.ts';
 import type { PageServerLoad } from './$types';
 
@@ -17,34 +19,42 @@ export const load: PageServerLoad = ({ locals }) => {
 
 async function loadDashboard(userId: string): Promise<DashboardContentData> {
 	const db = getDb(env.DB);
+	const locale = getLocale();
 
 	const [rows, tagRows] = await Promise.all([
 		db.query.recipe.findMany({
 			where: eq(recipe.userId, userId),
 			with: {
+				ingredients: { orderBy: (ingredient, { asc }) => [asc(ingredient.position)] },
+				steps: { orderBy: (step, { asc }) => [asc(step.position)] },
 				recipeTags: { with: { tag: { columns: { name: true, slug: true } } } }
 			}
 		}),
 		db.select({ name: tag.name, slug: tag.slug }).from(tag).where(eq(tag.userId, userId))
 	]);
 
-	const recipes = rows.map((row) => ({
-		id: row.id,
-		title: row.title,
-		description: row.description,
-		imageUrl: row.imageUrl,
-		servings: row.servings,
-		prepMinutes: row.prepMinutes,
-		cookMinutes: row.cookMinutes,
-		isFavorite: row.isFavorite,
-		isPublic: row.isPublic,
-		notes: row.notes,
-		cookedCount: row.cookedCount,
-		lastCookedAt: row.lastCookedAt,
-		createdAt: row.createdAt,
-		totalMinutes: (row.prepMinutes ?? 0) + (row.cookMinutes ?? 0),
-		tags: row.recipeTags.map((link) => link.tag)
-	}));
+	const recipes = await Promise.all(
+		rows.map(async (row) => {
+			const resolved = await resolveRecipeContent(db, row as any, locale);
+			return {
+				id: resolved.id,
+				title: resolved.title,
+				description: resolved.description,
+				imageUrl: resolved.imageUrl,
+				servings: resolved.servings,
+				prepMinutes: resolved.prepMinutes,
+				cookMinutes: resolved.cookMinutes,
+				isFavorite: resolved.isFavorite,
+				isPublic: resolved.isPublic,
+				notes: resolved.notes,
+				cookedCount: resolved.cookedCount,
+				lastCookedAt: resolved.lastCookedAt,
+				createdAt: resolved.createdAt,
+				totalMinutes: (resolved.prepMinutes ?? 0) + (resolved.cookMinutes ?? 0),
+				tags: row.recipeTags.map((link) => link.tag)
+			};
+		})
+	);
 
 	return { recipes, tags: tagRows };
 }

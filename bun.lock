@@ -10,6 +10,7 @@
         "@fontsource-variable/jetbrains-mono": "^5.3.0",
         "@fontsource-variable/karla": "^5.3.0",
         "@fontsource-variable/source-serif-4": "^5.3.1",
+        "@fontsource/noto-nastaliq-urdu": "^5.3.0",
         "@lucide/svelte": "^1.59.0",
         "bits-ui": "^2.19.5",
         "pdfjs-dist": "^6.4.299",
@@ -294,6 +295,8 @@
     "@fontsource-variable/karla": ["@fontsource-variable/karla@5.3.0", "", {}, "sha512-CypH/IGhvpU0I4sue6YG+ZDyx5heglFJAiU2NClTkKOh+jsqjZ7AAgWKGG59+X1dGCN/9L4BLLacCXD7TBBETA=="],
 
     "@fontsource-variable/source-serif-4": ["@fontsource-variable/source-serif-4@5.3.1", "", {}, "sha512-4Rtay22SC4lMvw11r/+9kxANB6P3M0X8s1NudBC2v0J1KU2y3DcMoNcT3lBoZ/CqLirzf+StlO6UlJilyrvaUg=="],
+
+    "@fontsource/noto-nastaliq-urdu": ["@fontsource/noto-nastaliq-urdu@5.3.0", "", {}, "sha512-rhozTu22mlnDp5R8A4gGeNJvoLroHEV0TytCwly20w1LMA+VXs/MyhORGJu3i3SWZFdyeCFe5EF5xzraq6zd6A=="],
 
     "@img/colour": ["@img/colour@1.1.0", "", {}, "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="],
 

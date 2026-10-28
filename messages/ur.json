@@ -185,6 +185,10 @@
 	"pdf_import_error": "یہ فائل پڑھی نہیں جا سکی۔ کوئی دوسری PDF آزمائیں۔",
 	"pdf_import_too_large": "یہ PDF 20 MB سے بڑی ہے۔",
 	"pdf_import_password": "یہ PDF پاس ورڈ سے محفوظ ہے۔ پاس ورڈ ہٹا کر دوبارہ آزمائیں۔",
+	"translate_to": "ترجمہ کریں...",
+	"language_english": "انگریزی",
+	"language_indonesian": "انڈونیشیائی",
+	"language_urdu": "اردو",
 	"recipes_count_one": "1 ریسیپی",
 	"recipe_servings_one": "1 پورشن",
 	"recipe_cooked_once": "ایک بار پکایا"

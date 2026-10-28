@@ -18,6 +18,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import type { SessionUser } from '#lib/types.ts';
 	import AppStatsResolver from './AppStatsResolver.svelte';
+	import LanguageSwitcher from './LanguageSwitcher.svelte';
 	import Logo from './Logo.svelte';
 	import MobileTabBar from './MobileTabBar.svelte';
 	import PageTransition from './PageTransition.svelte';
@@ -245,7 +246,10 @@
 		<div class="mt-2 flex items-center gap-1 border-t border-border pt-4">
 			<UserMenu {user} />
 			<span class="truncate text-sm font-medium">{user.name}</span>
-			<span class="ms-auto"><ThemeToggle /></span>
+			<span class="ms-auto flex items-center gap-1">
+				<LanguageSwitcher />
+				<ThemeToggle />
+			</span>
 		</div>
 	</aside>
 
@@ -255,6 +259,7 @@
 	>
 		<a href={resolve('/(app)/app')}><Logo /></a>
 		<div class="flex items-center gap-1">
+			<LanguageSwitcher />
 			<ThemeToggle />
 			<a
 				href={publicNav.href}

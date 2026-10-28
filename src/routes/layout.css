@@ -10,6 +10,7 @@
 @import '@fontsource-variable/karla/wght.css';
 @import '@fontsource-variable/source-serif-4/opsz.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource/noto-nastaliq-urdu/index.css';
 
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
@@ -582,4 +583,10 @@
 		box-shadow: none !important;
 		background: transparent !important;
 	}
+}
+
+:lang(ur) {
+	font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Noto Naskh Arabic', serif;
+	line-height: 1.9;
+	padding-block: 0.05em;
 }

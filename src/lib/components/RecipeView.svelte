@@ -20,15 +20,22 @@
 	import ShareLinkButton from '#lib/components/ShareLinkButton.svelte';
 	import { cookedLabel, servingsLabel } from '#lib/format.ts';
 	import { m } from '#lib/paraglide/messages.js';
+	import { getLocale, localizeUrl } from '#lib/paraglide/runtime.js';
 	import { formatMinutes } from '#lib/time.ts';
 	import type { RecipeDetailData } from '#lib/types.ts';
 
 	let { recipe, userId }: { recipe: RecipeDetailData; userId: string } = $props();
 
 	const totalMinutes = $derived((recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0));
-	const publicUrl = $derived(
-		recipe.slug ? `${page.url.origin}${resolve('/(public)/r/[slug]', { slug: recipe.slug })}` : null
-	);
+	const publicUrl = $derived(() => {
+		if (!recipe.slug) return null;
+		const path = resolve('/(public)/r/[slug]', { slug: recipe.slug });
+		try {
+			return localizeUrl(`${page.url.origin}${path}`, { locale: getLocale() }).toString();
+		} catch {
+			return `${page.url.origin}${path}`;
+		}
+	});
 
 	type RecipeAction = 'publish' | 'favorite' | 'share';
 
@@ -97,9 +104,9 @@
 		<h1 class="font-display text-3xl font-bold leading-[1.05] tracking-[-0.03em] sm:text-4xl">
 			{recipe.title}
 		</h1>
-		{#if publicUrl}
+		{#if publicUrl()}
 			<a
-				href={publicUrl}
+				href={publicUrl()}
 				target="_blank"
 				rel="noreferrer"
 				class="btn-icon"
@@ -112,8 +119,8 @@
 
 		<!-- Action icons, pushed to the inline end of the title row -->
 		<div class="no-print ms-auto flex items-center gap-1">
-			{#if publicUrl}
-				<ShareLinkButton url={publicUrl} title={recipe.title} variant="btn-icon" iconOnly />
+			{#if publicUrl() as string}
+				<ShareLinkButton url={publicUrl() as string} title={recipe.title} variant="btn-icon" iconOnly />
 			{:else}
 				<form
 					method="post"
@@ -212,7 +219,7 @@
 		<p class="prose-editorial-lg mt-2">{recipe.description}</p>
 	{/if}
 
-	{#if !recipe.isPublic && publicUrl}
+	{#if !recipe.isPublic && publicUrl()}
 		<p class="no-print mt-2 text-xs text-fg-subtle">
 			{m.recipe_private_note()}
 		</p>

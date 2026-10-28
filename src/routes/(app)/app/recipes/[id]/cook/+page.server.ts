@@ -1,11 +1,15 @@
 import { env } from 'cloudflare:workers';
 import { error } from '@sveltejs/kit';
+import { and, eq } from 'drizzle-orm';
 import { recordCook, visitorIdentity } from '#lib/server/cooked.ts';
 import { getDb } from '#lib/server/db/index.ts';
+import { resolveRecipeContent } from '#lib/server/recipe-i18n.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const db = getDb(env.DB);
+	const locale = getLocale();
 
 	const found = await db.query.recipe.findFirst({
 		where: (table, { and, eq }) => and(eq(table.id, params.id), eq(table.userId, locals.user!.id)),
@@ -17,22 +21,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	if (!found) error(404, 'Recipe not found');
 
+	const resolved = await resolveRecipeContent(db, found as any, locale);
+
 	return {
 		recipe: {
-			id: found.id,
-			title: found.title,
-			servings: found.servings,
-			ingredients: found.ingredients.map(({ id, quantity, unit, name, note }) => ({
-				id,
-				quantity,
-				unit,
-				name,
-				note
+			id: resolved.id,
+			title: resolved.title,
+			servings: resolved.servings,
+			ingredients: resolved.ingredients.map((ing: any) => ({
+				id: ing.id,
+				quantity: ing.quantity,
+				unit: ing.unit,
+				name: ing.name,
+				note: ing.note
 			})),
-			steps: found.steps.map(({ id, position, instruction }) => ({
-				id,
-				position,
-				instruction
+			steps: resolved.steps.map((st: any) => ({
+				id: st.id,
+				position: st.position,
+				instruction: st.instruction
 			}))
 		}
 	};

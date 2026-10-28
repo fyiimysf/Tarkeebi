@@ -14,6 +14,7 @@ export const recipe = sqliteTable(
 		userId: text('user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
+		locale: text('locale').notNull().default('en'),
 		title: text('title').notNull(),
 		slug: text('slug'),
 		description: text('description'),
@@ -39,6 +40,7 @@ export const recipe = sqliteTable(
 	},
 	(table) => [
 		index('recipe_userId_idx').on(table.userId),
+		index('recipe_locale_idx').on(table.locale),
 		index('recipe_title_idx').on(table.title),
 		uniqueIndex('recipe_slug_idx').on(table.slug),
 		index('recipe_public_idx').on(table.isPublic, table.publishedAt)
@@ -144,6 +146,93 @@ export const recipeTag = sqliteTable(
 	(table) => [primaryKey({ columns: [table.recipeId, table.tagId] })]
 );
 
+/**
+ * Translated recipe fields.
+ */
+export const recipeTranslation = sqliteTable(
+	'recipe_translation',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		recipeId: text('recipe_id')
+			.notNull()
+			.references(() => recipe.id, { onDelete: 'cascade' }),
+		locale: text('locale').notNull(),
+		title: text('title'),
+		description: text('description'),
+		notes: text('notes'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date())
+	},
+	(table) => [
+		uniqueIndex('recipe_translation_unique').on(table.recipeId, table.locale),
+		index('recipe_translation_locale_idx').on(table.locale)
+	]
+);
+
+/**
+ * Translated ingredient fields.
+ */
+export const ingredientTranslation = sqliteTable(
+	'ingredient_translation',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		ingredientId: text('ingredient_id')
+			.notNull()
+			.references(() => ingredient.id, { onDelete: 'cascade' }),
+		locale: text('locale').notNull(),
+		name: text('name'),
+		note: text('note'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date())
+	},
+	(table) => [
+		uniqueIndex('ingredient_translation_unique').on(table.ingredientId, table.locale),
+		index('ingredient_translation_locale_idx').on(table.locale)
+	]
+);
+
+/**
+ * Translated step instructions.
+ */
+export const stepTranslation = sqliteTable(
+	'step_translation',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		stepId: text('step_id')
+			.notNull()
+			.references(() => step.id, { onDelete: 'cascade' }),
+		locale: text('locale').notNull(),
+		instruction: text('instruction'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date())
+	},
+	(table) => [
+		uniqueIndex('step_translation_unique').on(table.stepId, table.locale),
+		index('step_translation_locale_idx').on(table.locale)
+	]
+);
+
 export const recipeRelations = relations(recipe, ({ one, many }) => ({
 	user: one(user, {
 		fields: [recipe.userId],
@@ -151,20 +240,44 @@ export const recipeRelations = relations(recipe, ({ one, many }) => ({
 	}),
 	ingredients: many(ingredient),
 	steps: many(step),
-	recipeTags: many(recipeTag)
+	recipeTags: many(recipeTag),
+	translations: many(recipeTranslation)
 }));
 
-export const ingredientRelations = relations(ingredient, ({ one }) => ({
+export const recipeTranslationRelations = relations(recipeTranslation, ({ one }) => ({
 	recipe: one(recipe, {
-		fields: [ingredient.recipeId],
+		fields: [recipeTranslation.recipeId],
 		references: [recipe.id]
 	})
 }));
 
-export const stepRelations = relations(step, ({ one }) => ({
+export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
+	recipe: one(recipe, {
+		fields: [ingredient.recipeId],
+		references: [recipe.id]
+	}),
+	translations: many(ingredientTranslation)
+}));
+
+export const ingredientTranslationRelations = relations(ingredientTranslation, ({ one }) => ({
+	ingredient: one(ingredient, {
+		fields: [ingredientTranslation.ingredientId],
+		references: [ingredient.id]
+	})
+}));
+
+export const stepRelations = relations(step, ({ one, many }) => ({
 	recipe: one(recipe, {
 		fields: [step.recipeId],
 		references: [recipe.id]
+	}),
+	translations: many(stepTranslation)
+}));
+
+export const stepTranslationRelations = relations(stepTranslation, ({ one }) => ({
+	step: one(step, {
+		fields: [stepTranslation.stepId],
+		references: [step.id]
 	})
 }));
 

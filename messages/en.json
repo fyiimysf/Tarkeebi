@@ -187,5 +187,9 @@
 	"pdf_import_password": "That PDF is password-protected. Remove the password and try again.",
 	"recipes_count_one": "1 recipe",
 	"recipe_servings_one": "1 serving",
-	"recipe_cooked_once": "Cooked once"
+	"recipe_cooked_once": "Cooked once",
+	"translate_to": "Translate to...",
+	"language_english": "English",
+	"language_indonesian": "Bahasa Indonesia",
+	"language_urdu": "اردو"
 }

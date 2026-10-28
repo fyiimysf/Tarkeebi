@@ -4,20 +4,23 @@ import { and, eq } from 'drizzle-orm';
 import { getCookStats, recordCook, visitorIdentity } from '#lib/server/cooked.ts';
 import { getDb } from '#lib/server/db/index.ts';
 import { recipe } from '#lib/server/db/schema.ts';
+import { resolveRecipeContent } from '#lib/server/recipe-i18n.ts';
 import { uniqueRecipeSlug } from '#lib/server/slug.ts';
 import { deleteRecipeImage } from '#lib/server/storage.ts';
+import { getLocale } from '#lib/paraglide/runtime.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals, getClientAddress }) => {
 	// Return the promise instead of awaiting it: SvelteKit streams the recipe to
 	// the browser, so the route shell (and its cached fallback) can render now.
-	const recipe = loadRecipe(params.id, locals.user!.id, getClientAddress);
-	recipe.catch(() => {});
-	return { recipe };
+	const recipePromise = loadRecipe(params.id, locals.user!.id, getClientAddress);
+	recipePromise.catch(() => {});
+	return { recipe: recipePromise };
 };
 
 async function loadRecipe(recipeId: string, userId: string, getClientAddress: () => string) {
 	const db = getDb(env.DB);
+	const locale = getLocale();
 
 	const found = await db.query.recipe.findFirst({
 		where: (table, { and, eq }) => and(eq(table.id, recipeId), eq(table.userId, userId)),
@@ -32,38 +35,43 @@ async function loadRecipe(recipeId: string, userId: string, getClientAddress: ()
 
 	const identity = await visitorIdentity(getClientAddress);
 	const cookStats = await getCookStats(found.id, identity);
+	const resolved = await resolveRecipeContent(db, found as any, locale);
 
 	return {
-		id: found.id,
-		title: found.title,
-		description: found.description,
-		notes: found.notes,
-		imageUrl: found.imageUrl,
-		servings: found.servings,
-		prepMinutes: found.prepMinutes,
-		cookMinutes: found.cookMinutes,
-		isFavorite: found.isFavorite,
-		isPublic: found.isPublic,
-		publishedAt: found.publishedAt,
-		slug: found.slug,
-		sourceUrl: found.sourceUrl,
+		id: resolved.id,
+		locale: resolved.locale,
+		resolvedLocale: resolved.resolvedLocale,
+		originalLocale: resolved.originalLocale,
+		isTranslated: resolved.isTranslated,
+		title: resolved.title,
+		description: resolved.description,
+		notes: resolved.notes,
+		imageUrl: resolved.imageUrl,
+		servings: resolved.servings,
+		prepMinutes: resolved.prepMinutes,
+		cookMinutes: resolved.cookMinutes,
+		isFavorite: resolved.isFavorite,
+		isPublic: resolved.isPublic,
+		publishedAt: resolved.publishedAt,
+		slug: resolved.slug,
+		sourceUrl: resolved.sourceUrl,
 		myCookCount: cookStats.count,
 		myLastCookedAt: cookStats.lastCookedAt,
-		cookedCount: found.cookedCount,
-		lastCookedAt: found.lastCookedAt,
-		createdAt: found.createdAt,
+		cookedCount: resolved.cookedCount,
+		lastCookedAt: resolved.lastCookedAt,
+		createdAt: resolved.createdAt,
 		tags: found.recipeTags.map(({ tag }) => ({ name: tag.name, slug: tag.slug })),
-		ingredients: found.ingredients.map(({ id, quantity, unit, name, note }) => ({
-			id,
-			quantity,
-			unit,
-			name,
-			note
+		ingredients: resolved.ingredients.map((ing: any) => ({
+			id: ing.id,
+			quantity: ing.quantity,
+			unit: ing.unit,
+			name: ing.name,
+			note: ing.note
 		})),
-		steps: found.steps.map(({ id, position, instruction }) => ({
-			id,
-			position,
-			instruction
+		steps: resolved.steps.map((st: any) => ({
+			id: st.id,
+			position: st.position,
+			instruction: st.instruction
 		}))
 	};
 }
